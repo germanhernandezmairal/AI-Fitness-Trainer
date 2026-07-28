@@ -43,3 +43,10 @@ uploads/
 Thumbs.db
 .vscode/
 .idea/
+
+# --- Backend ---
+backend/.venv/
+backend/.env
+backend/var/
+backend/**/__pycache__/
+backend/.pytest_cache/
