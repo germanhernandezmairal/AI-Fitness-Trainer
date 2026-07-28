@@ -670,7 +670,13 @@ async def session(settings, migrated_database):
     engine = create_async_engine(settings.test_database_url)
     connection = await engine.connect()
     transaction = await connection.begin()
-    maker = async_sessionmaker(bind=connection, expire_on_commit=False)
+    # join_transaction_mode="create_savepoint" is REQUIRED, not decorative: the
+    # service layer calls `await db.commit()` (Tasks 9, 11, 12). Without it, that
+    # commit would commit this fixture's outer transaction, the rollback below
+    # would become a no-op, and rows would leak between tests.
+    maker = async_sessionmaker(
+        bind=connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
+    )
     db: AsyncSession = maker()
     try:
         yield db
