@@ -23,7 +23,13 @@ async def test_attempt_round_trips_every_contract_column(session, user):
     session.add(attempt)
     await session.flush()
 
-    loaded = await session.get(Attempt, attempt.id)
+    # session.get() returns straight from the identity map with no SQL when the
+    # object isn't expired (expire_on_commit=False in this fixture) — `attempt`
+    # would just be handed back to itself, making every comparison below a
+    # tautology. refresh() forces a real SELECT so `loaded` reflects what
+    # Postgres actually has, not what Python assigned moments ago.
+    await session.refresh(attempt)
+    loaded = attempt
     assert loaded is not None
 
     # Columns supplied explicitly on the row.
