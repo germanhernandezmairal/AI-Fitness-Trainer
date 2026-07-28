@@ -8,14 +8,16 @@ from app.models import Attempt
 
 async def test_attempt_round_trips_every_contract_column(session, user):
     now = datetime.now(UTC)
+    attempt_id = uuid.uuid4()
+    expires_at = now + timedelta(days=30)
     attempt = Attempt(
-        id=uuid.uuid4(),
+        id=attempt_id,
         user_id=user.id,
         exercise_type="squat",
         status="queued",
         cv_job_id="abc123",
         original_video_ref="videos/abc.mp4",
-        expires_at=now + timedelta(days=30),
+        expires_at=expires_at,
         consent_at=now,
     )
     session.add(attempt)
@@ -23,8 +25,26 @@ async def test_attempt_round_trips_every_contract_column(session, user):
 
     loaded = await session.get(Attempt, attempt.id)
     assert loaded is not None
+
+    # Columns supplied explicitly on the row.
+    assert loaded.id == attempt_id
+    assert loaded.user_id == user.id
+    assert loaded.exercise_type == "squat"
     assert loaded.status == "queued"
     assert loaded.cv_job_id == "abc123"
+    assert loaded.original_video_ref == "videos/abc.mp4"
+
+    # Timezone-aware datetimes must round-trip to the same instant.
+    assert loaded.expires_at.tzinfo is not None
+    assert loaded.expires_at == expires_at
+    assert loaded.consent_at.tzinfo is not None
+    assert loaded.consent_at == now
+
+    # Server-generated column: not provided, but must come back populated and tz-aware.
+    assert loaded.created_at is not None
+    assert loaded.created_at.tzinfo is not None
+
+    # Columns left unset must come back as their nullable defaults.
     assert loaded.annotated_video_url is None
     assert loaded.result is None
     assert loaded.overall_score is None
