@@ -50,3 +50,6 @@ backend/.env
 backend/var/
 backend/**/__pycache__/
 backend/.pytest_cache/
+
+# Test fixture video, deliberately tracked despite the blanket *.mp4 rule above.
+!backend/tests/fixtures/squat.mp4
