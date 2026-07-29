@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://fitness:fitness@localhost:5432/fitness"
     test_database_url: str = "postgresql+asyncpg://fitness:fitness@localhost:5432/fitness_test"
 
-    jwt_secret: str = "dev-only-change-me"
+    jwt_secret: str = "dev-only-change-me-not-for-production-use"
     jwt_ttl_seconds: int = 86400
 
     cv_service_url: str = "http://localhost:9000"

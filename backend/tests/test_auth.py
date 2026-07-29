@@ -4,7 +4,7 @@ import pytest
 
 from app.security.tokens import InvalidToken, create_access_token, decode_access_token
 
-SECRET = "test-secret"
+SECRET = "this-is-a-test-secret-that-is-long-enough"
 
 
 def test_round_trips_a_user_id():
@@ -18,7 +18,7 @@ def test_rejects_a_token_signed_with_another_secret():
     token = create_access_token(uuid.uuid4(), SECRET, ttl_seconds=60)
 
     with pytest.raises(InvalidToken):
-        decode_access_token(token, "a-different-secret")
+        decode_access_token(token, "a-completely-different-secret-value-here")
 
 
 def test_rejects_an_expired_token():
