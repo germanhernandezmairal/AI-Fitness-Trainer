@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 
 import av
@@ -7,6 +8,7 @@ from app.config import Settings
 from app.schemas.contract import ExerciseType, UploadErrorCode
 
 ALLOWED_EXTENSIONS = {".mp4", ".mov"}
+ALLOWED_VIDEO_CODECS = {"h264"}
 
 
 class UploadValidationError(Exception):
@@ -25,6 +27,24 @@ class VideoInfo:
     video_codec: str
 
 
+def _resolve_duration_sec(
+    container_duration_us: int | None,
+    stream_duration: int | None,
+    stream_time_base: Fraction | None,
+) -> float | None:
+    """Container duration (microseconds) first; falls back to the video stream's own
+    duration (in its time_base), which fragmented files often still report even when
+    the container omits an overall duration. Returns None if neither is known --
+    callers must not score that as 0 seconds, since that would silently pass any
+    duration cap.
+    """
+    if container_duration_us:
+        return float(container_duration_us) / 1_000_000
+    if stream_duration is not None and stream_time_base is not None:
+        return float(stream_duration * stream_time_base)
+    return None
+
+
 def probe_video(path: Path) -> VideoInfo:
     try:
         with av.open(str(path)) as container:
@@ -33,11 +53,19 @@ def probe_video(path: Path) -> VideoInfo:
                 raise UploadValidationError(
                     UploadErrorCode.UNSUPPORTED_FORMAT, "file contains no video stream"
                 )
-            duration = float(container.duration) / 1_000_000 if container.duration else 0.0
+            stream = streams[0]
+            duration = _resolve_duration_sec(
+                container.duration, stream.duration, stream.time_base
+            )
+            if duration is None:
+                raise UploadValidationError(
+                    UploadErrorCode.UNSUPPORTED_FORMAT,
+                    "could not determine the video duration",
+                )
             return VideoInfo(
                 duration_sec=duration,
                 container=container.format.name,
-                video_codec=streams[0].codec_context.name,
+                video_codec=stream.codec_context.name,
             )
     except UploadValidationError:
         raise
@@ -74,6 +102,13 @@ def validate_upload(
         )
 
     info = probe_video(path)
+
+    if info.video_codec not in ALLOWED_VIDEO_CODECS:
+        raise UploadValidationError(
+            UploadErrorCode.UNSUPPORTED_FORMAT,
+            f"unsupported video codec {info.video_codec!r}",
+        )
+
     if info.duration_sec > settings.max_duration_sec:
         raise UploadValidationError(
             UploadErrorCode.VIDEO_TOO_LONG,
