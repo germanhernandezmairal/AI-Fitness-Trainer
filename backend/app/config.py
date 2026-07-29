@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     cv_service_url: str = "http://localhost:9000"
     cv_api_key: str = "dev-cv-api-key"
-    cv_webhook_secret: str = "dev-webhook-secret"
+    cv_webhook_secret: str = "dev-webhook-secret-change-me-in-production"
     webhook_tolerance_sec: int = 300
     backend_public_url: str = "http://localhost:8000"
 
