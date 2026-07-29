@@ -3,12 +3,16 @@ import subprocess
 import sys
 import uuid
 
+import httpx
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.api.deps import get_db
 from app.config import get_settings
+from app.main import app as fastapi_app
 from app.models import User
+from app.security.tokens import create_access_token
 
 
 @pytest.fixture(scope="session")
@@ -54,3 +58,21 @@ async def user(session) -> User:
     session.add(record)
     await session.flush()
     return record
+
+
+@pytest_asyncio.fixture
+async def client(session):
+    async def override_get_db():
+        yield session
+
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    transport = httpx.ASGITransport(app=fastapi_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http_client:
+        yield http_client
+    fastapi_app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def auth_headers(user, settings) -> dict[str, str]:
+    token = create_access_token(user.id, settings.jwt_secret, settings.jwt_ttl_seconds)
+    return {"Authorization": f"Bearer {token}"}
