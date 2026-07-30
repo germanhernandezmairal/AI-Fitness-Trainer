@@ -76,3 +76,15 @@ async def client(session):
 def auth_headers(user, settings) -> dict[str, str]:
     token = create_access_token(user.id, settings.jwt_secret, settings.jwt_ttl_seconds)
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(autouse=True)
+def isolated_storage(tmp_path, monkeypatch):
+    """Keep uploaded test videos out of the developer's real storage directory."""
+    from app.api.deps import get_storage
+    from app.services.storage import LocalFilesystemStorage
+
+    storage = LocalFilesystemStorage(root=tmp_path / "videos")
+    fastapi_app.dependency_overrides[get_storage] = lambda: storage
+    yield storage
+    fastapi_app.dependency_overrides.pop(get_storage, None)
