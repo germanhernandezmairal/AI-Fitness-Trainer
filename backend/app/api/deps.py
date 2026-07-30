@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from typing import Annotated
 
+import httpx
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,3 +47,22 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+from app.services.cv_client import CVClient
+from app.services.storage import LocalFilesystemStorage, Storage
+
+
+def get_storage(settings: SettingsDep) -> Storage:
+    return LocalFilesystemStorage(root=settings.storage_dir)
+
+
+async def get_cv_client(settings: SettingsDep) -> AsyncIterator[CVClient]:
+    async with httpx.AsyncClient() as http:
+        yield CVClient(
+            base_url=settings.cv_service_url, api_key=settings.cv_api_key, http=http
+        )
+
+
+StorageDep = Annotated[Storage, Depends(get_storage)]
+CVClientDep = Annotated[CVClient, Depends(get_cv_client)]
