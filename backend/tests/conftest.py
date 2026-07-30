@@ -79,7 +79,7 @@ def auth_headers(user, settings) -> dict[str, str]:
 
 
 @pytest.fixture(autouse=True)
-def isolated_storage(tmp_path, monkeypatch):
+def isolated_storage(tmp_path):
     """Keep uploaded test videos out of the developer's real storage directory."""
     from app.api.deps import get_storage
     from app.services.storage import LocalFilesystemStorage

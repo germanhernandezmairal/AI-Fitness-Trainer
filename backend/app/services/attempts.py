@@ -29,9 +29,15 @@ async def create_attempt(
 ) -> Attempt:
     """Validate, store, submit, persist.
 
-    Raises UploadValidationError (-> 400) or CVServiceError (-> 502). Nothing is
-    persisted unless the CV service accepted the job, so a failed submission never
-    leaves an orphan row for the reconciler to chew on.
+    Raises UploadValidationError (-> 400), CVServiceError (-> 502), or whatever
+    the persist step itself raises (e.g. an IntegrityError from a cv_job_id
+    collision). Nothing is left behind on any failure: a rejected upload never
+    reaches storage; a failed CV submission deletes the file it just wrote; and
+    if the CV service accepts the job but the commit that follows then fails,
+    the stored file is deleted and a best-effort compensating delete is sent
+    for the CV job, so neither an orphan file nor an orphan job survives a
+    failed commit. A cleanup failure is swallowed so it never masks the
+    original error.
     """
     exercise = validate_upload(video_path, filename, exercise_type, size_bytes, settings)
 
@@ -63,7 +69,16 @@ async def create_attempt(
         expires_at=now + timedelta(days=settings.retention_days),
         consent_at=now,
     )
-    db.add(attempt)
-    await db.commit()
-    await db.refresh(attempt)
+    try:
+        db.add(attempt)
+        await db.commit()
+        await db.refresh(attempt)
+    except Exception:
+        await db.rollback()
+        storage.delete(video_ref)
+        try:
+            await cv_client.delete_job(accepted.job_id)
+        except Exception:
+            pass
+        raise
     return attempt

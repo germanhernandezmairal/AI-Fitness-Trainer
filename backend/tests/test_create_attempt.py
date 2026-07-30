@@ -2,11 +2,14 @@ import uuid
 from pathlib import Path
 
 import httpx
+import pytest
 import respx
 import sqlalchemy as sa
 
 from app.models import Attempt
 from app.schemas.contract import AttemptStatus, UploadErrorCode
+from app.services.attempts import create_attempt
+from app.services.cv_client import CVClient
 
 SQUAT = Path(__file__).parent / "fixtures" / "squat.mp4"
 
@@ -125,3 +128,69 @@ async def test_returns_502_and_stores_no_attempt_when_the_cv_service_is_down(
     assert response.status_code == 502
     after = await session.scalar(sa.select(sa.func.count()).select_from(Attempt))
     assert after == before
+
+
+@respx.mock
+async def test_compensates_for_a_persist_failure_after_the_cv_service_accepted_the_job(
+    session, user, settings, isolated_storage
+):
+    """A cv_job_id collision at commit time is a real scenario (see
+    test_models.py::test_cv_job_id_is_unique) -- the CV service has already
+    accepted the job by the time the commit fails, so both the stored file and
+    the accepted CV job must be cleaned up rather than orphaned.
+
+    Exercised directly against create_attempt rather than through the HTTP
+    client: the exception this path raises (an IntegrityError, not
+    UploadValidationError or CVServiceError) is not one the router translates
+    to a response, so going through the ASGI transport would surface it as a
+    raised exception rather than a status code. The service-level contract --
+    no orphan row, no orphan file, a compensating delete sent -- is exactly
+    what changed, so it is exactly what this test checks.
+    """
+    respx.post(f"{settings.cv_service_url}/v1/jobs").mock(
+        return_value=httpx.Response(202, json={"job_id": "job-dup", "status": "queued"})
+    )
+    delete_route = respx.delete(f"{settings.cv_service_url}/v1/jobs/job-dup").mock(
+        return_value=httpx.Response(204)
+    )
+
+    async with httpx.AsyncClient() as http:
+        cv_client = CVClient(
+            base_url=settings.cv_service_url, api_key=settings.cv_api_key, http=http
+        )
+
+        await create_attempt(
+            db=session,
+            user=user,
+            video_path=SQUAT,
+            filename="squat.mp4",
+            exercise_type="squat",
+            size_bytes=SQUAT.stat().st_size,
+            storage=isolated_storage,
+            cv_client=cv_client,
+            settings=settings,
+        )
+
+        files_after_first = set(isolated_storage.root.iterdir())
+        before = await session.scalar(sa.select(sa.func.count()).select_from(Attempt))
+
+        with pytest.raises(sa.exc.IntegrityError):
+            await create_attempt(
+                db=session,
+                user=user,
+                video_path=SQUAT,
+                filename="squat.mp4",
+                exercise_type="squat",
+                size_bytes=SQUAT.stat().st_size,
+                storage=isolated_storage,
+                cv_client=cv_client,
+                settings=settings,
+            )
+
+    after = await session.scalar(sa.select(sa.func.count()).select_from(Attempt))
+    assert after == before
+
+    files_after_second = set(isolated_storage.root.iterdir())
+    assert files_after_second == files_after_first, "the second attempt's video was not cleaned up"
+
+    assert delete_route.called
