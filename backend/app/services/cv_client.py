@@ -1,5 +1,6 @@
 """Client for the internal boundary: backend -> CV service (spec §4)."""
 
+import mimetypes
 from typing import BinaryIO
 
 import httpx
@@ -34,11 +35,12 @@ class CVClient:
         exercise_type: str,
         callback_url: str,
     ) -> JobAccepted:
+        content_type = mimetypes.guess_type(filename)[0] or "video/mp4"
         try:
             response = await self.http.post(
                 f"{self.base_url}/v1/jobs",
                 headers=self._headers,
-                files={"video": (filename, video, "video/mp4")},
+                files={"video": (filename, video, content_type)},
                 data={"exercise_type": exercise_type, "callback_url": callback_url},
                 timeout=TIMEOUT,
             )
@@ -49,7 +51,13 @@ class CVClient:
             raise CVServiceError(
                 f"CV service rejected the job: {response.text}", response.status_code
             )
-        return JobAccepted.model_validate(response.json())
+        try:
+            return JobAccepted.model_validate(response.json())
+        except ValueError as exc:
+            raise CVServiceError(
+                f"CV service sent an unusable job-accepted response: {exc}",
+                response.status_code,
+            ) from exc
 
     async def get_job(self, job_id: str) -> JobStatus:
         try:
@@ -63,7 +71,13 @@ class CVClient:
             raise CVServiceError(
                 f"unexpected status for job {job_id}: {response.text}", response.status_code
             )
-        return JobStatus.model_validate(response.json())
+        try:
+            return JobStatus.model_validate(response.json())
+        except ValueError as exc:
+            raise CVServiceError(
+                f"CV service sent an unusable job-status response for {job_id}: {exc}",
+                response.status_code,
+            ) from exc
 
     async def delete_job(self, job_id: str) -> None:
         """Idempotent (spec §4): an already-deleted job is a success."""

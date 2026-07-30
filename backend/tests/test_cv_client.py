@@ -87,6 +87,55 @@ async def test_submit_job_raises_when_the_service_is_unreachable(cv_client):
 
 
 @respx.mock
+async def test_submit_job_raises_on_a_malformed_200_response(cv_client):
+    respx.post(f"{BASE}/v1/jobs").mock(
+        return_value=httpx.Response(200, json={"unexpected": "shape"})
+    )
+
+    with pytest.raises(CVServiceError):
+        await cv_client.submit_job(
+            video=io.BytesIO(b"bytes"),
+            filename="squat.mp4",
+            exercise_type="squat",
+            callback_url="http://backend/cb",
+        )
+
+
+@respx.mock
+async def test_submit_job_sends_the_content_type_for_a_mov_upload(cv_client):
+    route = respx.post(f"{BASE}/v1/jobs").mock(
+        return_value=httpx.Response(202, json={"job_id": "job-1", "status": "queued"})
+    )
+
+    await cv_client.submit_job(
+        video=io.BytesIO(b"bytes"),
+        filename="squat.mov",
+        exercise_type="squat",
+        callback_url="http://backend/cb",
+    )
+
+    body = route.calls.last.request.content
+    assert b"video/quicktime" in body
+
+
+@respx.mock
+async def test_submit_job_sends_the_content_type_for_an_mp4_upload(cv_client):
+    route = respx.post(f"{BASE}/v1/jobs").mock(
+        return_value=httpx.Response(202, json={"job_id": "job-1", "status": "queued"})
+    )
+
+    await cv_client.submit_job(
+        video=io.BytesIO(b"bytes"),
+        filename="squat.mp4",
+        exercise_type="squat",
+        callback_url="http://backend/cb",
+    )
+
+    body = route.calls.last.request.content
+    assert b"video/mp4" in body
+
+
+@respx.mock
 async def test_get_job_parses_a_completed_result(cv_client):
     respx.get(f"{BASE}/v1/jobs/job-1").mock(
         return_value=httpx.Response(200, json={"status": "completed", "result": RESULT})
@@ -116,6 +165,16 @@ async def test_get_job_parses_a_failure(cv_client):
     assert status.status is AttemptStatus.FAILED
     assert status.error is not None
     assert status.error.code is FailureCode.NO_POSE_DETECTED
+
+
+@respx.mock
+async def test_get_job_raises_on_a_malformed_200_response(cv_client):
+    respx.get(f"{BASE}/v1/jobs/job-3").mock(
+        return_value=httpx.Response(200, json={"status": "completed"})  # missing result
+    )
+
+    with pytest.raises(CVServiceError):
+        await cv_client.get_job("job-3")
 
 
 @respx.mock

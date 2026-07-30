@@ -9,6 +9,8 @@ from app.config import Settings, get_settings
 from app.db import session_factory
 from app.models import User
 from app.security.tokens import InvalidToken, decode_access_token
+from app.services.cv_client import CVClient
+from app.services.storage import LocalFilesystemStorage, Storage
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
@@ -47,10 +49,6 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
-
-
-from app.services.cv_client import CVClient
-from app.services.storage import LocalFilesystemStorage, Storage
 
 
 def get_storage(settings: SettingsDep) -> Storage:
