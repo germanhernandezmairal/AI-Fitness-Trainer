@@ -112,3 +112,26 @@ class JobStatus(BaseModel):
         if self.status is AttemptStatus.FAILED and self.error is None:
             raise ValueError("a failed job must carry an error")
         return self
+
+
+# --- Backend-only presentation copy, NOT part of the wire contract ---
+#
+# Everything above this line is the shared backend<->CV service boundary and changes
+# to it must be agreed with the CV service author (see module docstring). This map is
+# additive and backend-only: it does not change any wire shape or existing field, it
+# only decides what a gym user's phone displays for a given FailureCode. Spanish, since
+# this is a Spanish-language product.
+USER_MESSAGES: dict[FailureCode, str] = {
+    FailureCode.NO_POSE_DETECTED: (
+        "No pudimos detectar a una persona en el vídeo. "
+        "Grábalo de nuevo con todo el cuerpo visible."
+    ),
+    FailureCode.LOW_POSE_CONFIDENCE: (
+        "El vídeo se ve borroso o mal iluminado. Prueba con más luz."
+    ),
+    FailureCode.NO_MOVEMENT_DETECTED: "No detectamos ninguna repetición completa.",
+    FailureCode.STORAGE_ERROR: "Hubo un problema al guardar tu vídeo. Inténtalo de nuevo.",
+    FailureCode.WORKER_ERROR: (
+        "No pudimos analizar el vídeo. Inténtalo de nuevo en unos minutos."
+    ),
+}

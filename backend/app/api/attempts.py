@@ -1,3 +1,5 @@
+import base64
+import binascii
 import tempfile
 import uuid
 from datetime import datetime
@@ -6,11 +8,18 @@ from pathlib import Path
 import sqlalchemy as sa
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CVClientDep, CurrentUser, DbDep, SettingsDep, StorageDep
-from app.models import Attempt
+from app.models import Attempt, User
 from app.schemas.attempt import AttemptCreated, AttemptDetail, AttemptPage, AttemptSummary
-from app.schemas.contract import AnalysisResult, AttemptStatus, ErrorPayload, FailureCode
+from app.schemas.contract import (
+    USER_MESSAGES,
+    AnalysisResult,
+    AttemptStatus,
+    ErrorPayload,
+    FailureCode,
+)
 from app.services.attempts import create_attempt
 from app.services.cv_client import CVServiceError
 from app.services.validation import UploadValidationError
@@ -64,7 +73,7 @@ async def create(
     return AttemptCreated(attempt_id=attempt.id, status=AttemptStatus(attempt.status))
 
 
-async def _load_owned_attempt(db, attempt_id: uuid.UUID, user) -> Attempt:
+async def _load_owned_attempt(db: AsyncSession, attempt_id: uuid.UUID, user: User) -> Attempt:
     """404 rather than 403 for a stranger's attempt — do not leak that it exists."""
     result = await db.execute(
         sa.select(Attempt).where(Attempt.id == attempt_id, Attempt.user_id == user.id)
@@ -75,15 +84,32 @@ async def _load_owned_attempt(db, attempt_id: uuid.UUID, user) -> Attempt:
     return attempt
 
 
+_UNKNOWN_ERROR_MESSAGE = "No pudimos analizar el vídeo. Inténtalo de nuevo en unos minutos."
+
+
+def _error_payload(error_code: str) -> ErrorPayload:
+    """Degrade gracefully on an unrecognized stored code rather than 500.
+
+    error_code is a bare String(50) with no DB constraint, so a bad webhook write is
+    enough to produce a value outside the FailureCode catalog. An attempt must stay
+    readable even then.
+    """
+    try:
+        code = FailureCode(error_code)
+    except ValueError:
+        # ErrorPayload.code is a closed FailureCode enum, so an unrecognized stored
+        # string can't be echoed back verbatim. WORKER_ERROR is the closest fit
+        # semantically (a system-side problem, safe to retry) and its is_retryable
+        # property tells the client to let the user try again.
+        return ErrorPayload(code=FailureCode.WORKER_ERROR, message=_UNKNOWN_ERROR_MESSAGE)
+    return ErrorPayload(code=code, message=USER_MESSAGES[code])
+
+
 @router.get("/{attempt_id}", response_model=AttemptDetail)
 async def get_attempt(attempt_id: uuid.UUID, user: CurrentUser, db: DbDep) -> AttemptDetail:
     attempt = await _load_owned_attempt(db, attempt_id, user)
 
-    error = None
-    if attempt.error_code:
-        error = ErrorPayload(
-            code=FailureCode(attempt.error_code), message="see the CV service logs"
-        )
+    error = _error_payload(attempt.error_code) if attempt.error_code else None
 
     return AttemptDetail(
         attempt_id=attempt.id,
@@ -96,6 +122,22 @@ async def get_attempt(attempt_id: uuid.UUID, user: CurrentUser, db: DbDep) -> At
     )
 
 
+def _encode_cursor(when: datetime) -> str:
+    return base64.urlsafe_b64encode(when.isoformat().encode()).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> datetime:
+    padded = cursor + "=" * (-len(cursor) % 4)
+    try:
+        return datetime.fromisoformat(base64.urlsafe_b64decode(padded).decode())
+    except (ValueError, binascii.Error) as exc:
+        # binascii.Error (malformed base64) is NOT a ValueError subclass, so both
+        # must be caught here or a bad cursor value escapes as a 500 instead of 400.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="malformed cursor"
+        ) from exc
+
+
 @router.get("", response_model=AttemptPage)
 async def list_attempts(
     user: CurrentUser,
@@ -103,7 +145,12 @@ async def list_attempts(
     limit: int = Query(default=20, ge=1, le=100),
     cursor: str | None = Query(default=None),
 ) -> AttemptPage:
-    """Keyset pagination on created_at descending; the cursor is an ISO timestamp.
+    """Keyset pagination on created_at descending.
+
+    The cursor is an opaque base64url token wrapping the ISO timestamp of the last item
+    on the previous page — callers must not depend on its interior format. Keeping it
+    opaque means a future move to a compound (created_at, id) cursor (see below) stays
+    a non-breaking change.
 
     Two attempts sharing an exact created_at would straddle a page boundary. Postgres
     timestamps are microsecond-precision and one user cannot upload twice in the same
@@ -111,19 +158,7 @@ async def list_attempts(
     """
     query = sa.select(Attempt).where(Attempt.user_id == user.id)
     if cursor:
-        # An unescaped "+" UTC offset (e.g. "...+00:00") is not safe raw in a query
-        # string: both httpx's client-side query parsing and Starlette's server-side
-        # parsing decode a literal "+" to a space per application/x-www-form-urlencoded
-        # convention. isoformat() never emits a space on its own, so undoing that here
-        # is safe and avoids requiring every caller to percent-encode the cursor first.
-        try:
-            query = query.where(
-                Attempt.created_at < datetime.fromisoformat(cursor.replace(" ", "+"))
-            )
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="malformed cursor"
-            ) from None
+        query = query.where(Attempt.created_at < _decode_cursor(cursor))
 
     query = query.order_by(Attempt.created_at.desc()).limit(limit + 1)
     rows = list((await db.execute(query)).scalars())
@@ -141,5 +176,5 @@ async def list_attempts(
             )
             for row in page
         ],
-        next_cursor=page[-1].created_at.isoformat() if has_more and page else None,
+        next_cursor=_encode_cursor(page[-1].created_at) if has_more and page else None,
     )

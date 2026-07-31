@@ -121,12 +121,78 @@ async def test_history_paginates_with_a_cursor(client, auth_headers, user, make_
     assert first_ids.isdisjoint(second_ids)
 
 
+async def test_history_pagination_visits_every_attempt_exactly_once_in_order(
+    client, auth_headers, user, make_attempt
+):
+    """Disjoint pages alone would not catch a keyset off-by-one that skips a row."""
+    base = datetime.now(UTC)
+    seeded = [
+        await make_attempt(user, created_at=base - timedelta(minutes=offset))
+        for offset in range(5)
+    ]
+    expected_ids = [str(attempt.id) for attempt in seeded]  # newest (offset 0) first
+
+    seen_ids: list[str] = []
+    cursor = None
+    for _ in range(10):  # generous upper bound so a bug can't hang the test
+        url = "/v1/attempts?limit=2"
+        if cursor:
+            url += f"&cursor={cursor}"
+        response = await client.get(url, headers=auth_headers)
+        assert response.status_code == 200
+        body = response.json()
+        seen_ids.extend(item["attempt_id"] for item in body["items"])
+        cursor = body["next_cursor"]
+        if cursor is None:
+            break
+
+    assert seen_ids == expected_ids
+
+
 async def test_history_reports_no_cursor_on_the_last_page(client, auth_headers, user, make_attempt):
     await make_attempt(user)
 
     response = await client.get("/v1/attempts?limit=10", headers=auth_headers)
 
+    assert response.status_code == 200
     assert response.json()["next_cursor"] is None
+
+
+async def test_history_is_empty_for_a_user_with_no_attempts(client, auth_headers):
+    response = await client.get("/v1/attempts", headers=auth_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"] == []
+    assert body["next_cursor"] is None
+
+
+async def test_history_rejects_a_malformed_cursor(client, auth_headers, user, make_attempt):
+    await make_attempt(user)
+
+    response = await client.get("/v1/attempts?cursor=not-a-date", headers=auth_headers)
+
+    assert response.status_code == 400
+
+
+async def test_history_rejects_a_non_base64_cursor(client, auth_headers, user, make_attempt):
+    await make_attempt(user)
+
+    response = await client.get("/v1/attempts?cursor=%24%24%24not-base64%24%24%24", headers=auth_headers)
+
+    assert response.status_code == 400
+
+
+async def test_history_rejects_a_limit_below_the_minimum(client, auth_headers):
+    response = await client.get("/v1/attempts?limit=0", headers=auth_headers)
+
+    assert response.status_code == 422
+
+
+async def test_history_rejects_a_limit_above_the_maximum(client, auth_headers):
+    response = await client.get("/v1/attempts?limit=101", headers=auth_headers)
+
+    assert response.status_code == 422
 
 
 async def test_history_requires_authentication(client):
