@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.models import Attempt, User
-from app.schemas.contract import AttemptStatus
+from app.schemas.contract import AttemptStatus, JobStatus
 from app.services.cv_client import CVClient
 from app.services.storage import Storage
 from app.services.validation import validate_upload
@@ -82,3 +82,31 @@ async def create_attempt(
             pass
         raise
     return attempt
+
+
+async def apply_job_status(db: AsyncSession, attempt: Attempt, job_status: JobStatus) -> bool:
+    """Write a CV result onto an attempt. Returns False if it was already terminal.
+
+    Both the webhook (Task 11) and the polling reconciler (Task 13) call this, so a
+    result delivered twice — or by both paths — lands exactly once (spec §8).
+    """
+    if AttemptStatus(attempt.status).is_terminal:
+        return False
+
+    if job_status.status is AttemptStatus.COMPLETED and job_status.result is not None:
+        attempt.status = AttemptStatus.COMPLETED.value
+        attempt.result = job_status.result.model_dump(mode="json")
+        attempt.overall_score = job_status.result.overall_score
+        attempt.annotated_video_url = job_status.result.annotated_video_url
+        attempt.error_code = None
+        attempt.completed_at = datetime.now(UTC)
+    elif job_status.status is AttemptStatus.FAILED and job_status.error is not None:
+        attempt.status = AttemptStatus.FAILED.value
+        attempt.error_code = job_status.error.code.value
+        attempt.completed_at = datetime.now(UTC)
+    else:
+        # queued / processing — record the progress, stay non-terminal
+        attempt.status = job_status.status.value
+
+    await db.commit()
+    return True
