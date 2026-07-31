@@ -90,6 +90,12 @@ async def apply_job_status(db: AsyncSession, attempt: Attempt, job_status: JobSt
     Both the webhook (Task 11) and the polling reconciler (Task 13) call this, so a
     result delivered twice — or by both paths — lands exactly once (spec §8).
     """
+    # SELECT ... FOR UPDATE: re-reads status AND serializes this call against a
+    # concurrent caller (Task 13's poller racing this webhook), so a second delivery
+    # that arrives while the first is still mid-transaction blocks here and then sees
+    # the terminal state instead of both callers passing the guard below.
+    await db.refresh(attempt, with_for_update=True)
+
     if AttemptStatus(attempt.status).is_terminal:
         return False
 
@@ -104,6 +110,12 @@ async def apply_job_status(db: AsyncSession, attempt: Attempt, job_status: JobSt
         attempt.status = AttemptStatus.FAILED.value
         attempt.error_code = job_status.error.code.value
         attempt.completed_at = datetime.now(UTC)
+        # A failed row must be coherent on its own, not merely by relying on no
+        # other branch having run first: clear any result fields so a failure can
+        # never carry a stale completed-job payload.
+        attempt.result = None
+        attempt.overall_score = None
+        attempt.annotated_video_url = None
     else:
         # queued / processing — record the progress, stay non-terminal
         attempt.status = job_status.status.value

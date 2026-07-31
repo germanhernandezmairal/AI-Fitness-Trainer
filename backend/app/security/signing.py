@@ -34,5 +34,11 @@ def verify_signature(
         raise SignatureError("timestamp outside the tolerance window")
 
     expected = sign_payload(body, timestamp, secret)
-    if not hmac.compare_digest(expected, signature or ""):
+    # Compare bytes, not str: hmac.compare_digest raises TypeError on two str
+    # arguments when either contains non-ASCII characters, and an attacker fully
+    # controls `signature` (a request header). A raw byte > 0x7F in the header is
+    # decoded as non-ASCII by Starlette (headers are latin-1), so this is reachable
+    # by any caller, not just a captured/tampered signature. Every Python str
+    # encodes to UTF-8 without error, so this never raises for a legitimate value.
+    if not hmac.compare_digest(expected.encode(), (signature or "").encode()):
         raise SignatureError("signature mismatch")

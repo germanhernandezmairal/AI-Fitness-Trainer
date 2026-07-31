@@ -1,6 +1,9 @@
 import json
 import time
+import uuid
 from datetime import UTC, datetime
+
+import httpx
 
 from app.security.signing import sign_payload
 
@@ -142,8 +145,6 @@ async def test_a_late_webhook_cannot_overwrite_a_terminal_attempt(
 
 
 async def test_returns_404_for_an_unknown_attempt(client, settings):
-    import uuid
-
     body, headers = signed(COMPLETED, settings.cv_webhook_secret)
 
     response = await client.post(f"/v1/cv-callback/{uuid.uuid4()}", content=body, headers=headers)
@@ -158,3 +159,50 @@ async def test_rejects_a_payload_that_violates_the_contract(client, user, make_a
     response = await client.post(f"/v1/cv-callback/{attempt.id}", content=body, headers=headers)
 
     assert response.status_code == 422
+
+
+async def test_rejects_a_non_ascii_signature(client, session, user, make_attempt, settings):
+    """A byte > 0x7F in the signature header must fail cleanly, not raise.
+
+    Starlette decodes header bytes as latin-1, so any caller can send a non-ASCII
+    X-CV-Signature. hmac.compare_digest raises TypeError on two `str` arguments when
+    either is non-ASCII; this must not escape as an unhandled error on the one
+    unauthenticated route in the app.
+    """
+    attempt = await make_attempt(user, status="processing")
+    body = json.dumps(COMPLETED).encode()
+    stamp = str(int(time.time()))
+    headers = httpx.Headers(
+        [
+            (b"X-CV-Signature", "\xe9".encode("latin-1")),
+            (b"X-CV-Timestamp", stamp.encode()),
+            (b"Content-Type", b"application/json"),
+        ]
+    )
+
+    response = await client.post(f"/v1/cv-callback/{attempt.id}", content=body, headers=headers)
+
+    assert response.status_code == 401
+    await session.refresh(attempt)
+    assert attempt.status == "processing"
+
+
+async def test_a_bad_signature_against_an_unknown_attempt_still_returns_401(client, settings):
+    """Pins verify-before-lookup: an unauthenticated caller gets no attempt-ID oracle."""
+    body, headers = signed(COMPLETED, "the-wrong-secret")
+
+    response = await client.post(f"/v1/cv-callback/{uuid.uuid4()}", content=body, headers=headers)
+
+    assert response.status_code == 401
+
+
+async def test_applies_a_processing_update(client, session, user, make_attempt, settings):
+    attempt = await make_attempt(user, status="queued")
+    body, headers = signed({"status": "processing"}, settings.cv_webhook_secret)
+
+    response = await client.post(f"/v1/cv-callback/{attempt.id}", content=body, headers=headers)
+
+    assert response.status_code == 204
+    await session.refresh(attempt)
+    assert attempt.status == "processing"
+    assert attempt.completed_at is None
