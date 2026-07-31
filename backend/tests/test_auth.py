@@ -40,14 +40,12 @@ async def test_dev_login_issues_a_token_for_a_new_email(client):
     assert response.json()["access_token"]
 
 
-@pytest.mark.xfail(reason="GET /v1/attempts lands in Task 10", strict=False)
 async def test_protected_route_rejects_a_missing_token(client):
     response = await client.get("/v1/attempts")
 
     assert response.status_code == 401
 
 
-@pytest.mark.xfail(reason="GET /v1/attempts lands in Task 10", strict=False)
 async def test_protected_route_rejects_a_bad_token(client):
     response = await client.get("/v1/attempts", headers={"Authorization": "Bearer nope"})
 

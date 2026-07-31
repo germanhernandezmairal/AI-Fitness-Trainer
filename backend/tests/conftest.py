@@ -88,3 +88,40 @@ def isolated_storage(tmp_path):
     fastapi_app.dependency_overrides[get_storage] = lambda: storage
     yield storage
     fastapi_app.dependency_overrides.pop(get_storage, None)
+
+
+@pytest_asyncio.fixture
+async def make_attempt(session):
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import Attempt
+
+    async def _make(owner, **overrides):
+        now = overrides.pop("created_at", datetime.now(UTC))
+        attempt = Attempt(
+            id=uuid.uuid4(),
+            user_id=owner.id,
+            exercise_type=overrides.pop("exercise_type", "squat"),
+            status=overrides.pop("status", "queued"),
+            cv_job_id=overrides.pop("cv_job_id", f"job-{uuid.uuid4().hex[:8]}"),
+            original_video_ref=overrides.pop("original_video_ref", "ref.mp4"),
+            created_at=now,
+            expires_at=overrides.pop("expires_at", now + timedelta(days=30)),
+            consent_at=overrides.pop("consent_at", now),
+            **overrides,
+        )
+        session.add(attempt)
+        await session.flush()
+        return attempt
+
+    return _make
+
+
+@pytest_asyncio.fixture
+async def other_user(session):
+    from app.models import User
+
+    record = User(id=uuid.uuid4(), email=f"{uuid.uuid4().hex}@example.com")
+    session.add(record)
+    await session.flush()
+    return record
