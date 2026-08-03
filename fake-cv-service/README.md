@@ -18,7 +18,7 @@ uvicorn main:app --port 9000
 | Variable | Default | Purpose |
 |---|---|---|
 | `CV_API_KEY` | `dev-cv-api-key` | must match the backend's `CV_API_KEY` |
-| `CV_WEBHOOK_SECRET` | `dev-webhook-secret` | must match the backend's `CV_WEBHOOK_SECRET` |
+| `CV_WEBHOOK_SECRET` | `dev-webhook-secret-change-me-in-production` | must match the backend's `CV_WEBHOOK_SECRET` |
 | `FAKE_PROCESSING_DELAY_SEC` | `5` | how long to "analyze" before calling back |
 | `FAKE_FORCE_FAILURE` | *(empty)* | set to a failure code to exercise the failure path |
 

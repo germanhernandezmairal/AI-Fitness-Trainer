@@ -19,7 +19,7 @@ import httpx
 from fastapi import FastAPI, File, Form, Header, HTTPException, Response, UploadFile, status
 
 API_KEY = os.environ.get("CV_API_KEY", "dev-cv-api-key")
-WEBHOOK_SECRET = os.environ.get("CV_WEBHOOK_SECRET", "dev-webhook-secret")
+WEBHOOK_SECRET = os.environ.get("CV_WEBHOOK_SECRET", "dev-webhook-secret-change-me-in-production")
 PROCESSING_DELAY_SEC = float(os.environ.get("FAKE_PROCESSING_DELAY_SEC", "5"))
 # Set to a failure code (e.g. "no_pose_detected") to exercise the failure path.
 FORCE_FAILURE = os.environ.get("FAKE_FORCE_FAILURE", "")

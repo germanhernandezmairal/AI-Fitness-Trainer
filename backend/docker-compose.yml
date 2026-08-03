@@ -18,7 +18,7 @@ services:
     build: ../fake-cv-service
     environment:
       CV_API_KEY: dev-cv-api-key
-      CV_WEBHOOK_SECRET: dev-webhook-secret
+      CV_WEBHOOK_SECRET: dev-webhook-secret-change-me-in-production
       FAKE_PROCESSING_DELAY_SEC: "5"
     ports:
       - "9000:9000"
