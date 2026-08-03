@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import sqlalchemy as sa
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +20,7 @@ from app.schemas.contract import (
     ErrorPayload,
     FailureCode,
 )
-from app.services.attempts import create_attempt
+from app.services.attempts import create_attempt, delete_attempt
 from app.services.cv_client import CVServiceError
 from app.services.validation import UploadValidationError
 
@@ -178,3 +178,24 @@ async def list_attempts(
         ],
         next_cursor=_encode_cursor(page[-1].created_at) if has_more and page else None,
     )
+
+
+@router.delete("/{attempt_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def erase_attempt(
+    attempt_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbDep,
+    storage: StorageDep,
+    cv_client: CVClientDep,
+) -> Response:
+    attempt = await _load_owned_attempt(db, attempt_id, user)
+
+    try:
+        await delete_attempt(db, attempt, storage, cv_client)
+    except CVServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"could not confirm erasure with the analysis service: {exc}",
+        ) from exc
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

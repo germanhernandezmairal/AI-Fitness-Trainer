@@ -122,3 +122,24 @@ async def apply_job_status(db: AsyncSession, attempt: Attempt, job_status: JobSt
 
     await db.commit()
     return True
+
+
+async def delete_attempt(
+    db: AsyncSession,
+    attempt: Attempt,
+    storage: Storage,
+    cv_client: CVClient,
+) -> None:
+    """One user action, one sweep across both services (spec §7).
+
+    The CV call comes before the row delete on purpose: if the CV service cannot
+    confirm erasure, CVServiceError propagates, the row survives, and the user can
+    retry. Reporting success we could not deliver would break the GDPR promise.
+    """
+    storage.delete(attempt.original_video_ref)
+
+    if attempt.cv_job_id:
+        await cv_client.delete_job(attempt.cv_job_id)
+
+    await db.delete(attempt)
+    await db.commit()
