@@ -2,7 +2,8 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 import httpx
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
@@ -23,22 +24,27 @@ async def get_db(settings: SettingsDep) -> AsyncIterator[AsyncSession]:
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
+# auto_error=False: a missing/malformed header should fall through to our own 401,
+# not FastAPI's default 403 — and declaring this as a proper security scheme (rather
+# than a bare Header() param) is what gives Swagger UI a working Authorize button.
+bearer_scheme = HTTPBearer(auto_error=False)
+
 
 async def get_current_user(
     settings: SettingsDep,
     db: DbDep,
-    authorization: Annotated[str | None, Header()] = None,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
 ) -> User:
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="not authenticated",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    if not authorization or not authorization.lower().startswith("bearer "):
+    if credentials is None:
         raise unauthorized
 
     try:
-        user_id = decode_access_token(authorization.split(" ", 1)[1], settings.jwt_secret)
+        user_id = decode_access_token(credentials.credentials, settings.jwt_secret)
     except InvalidToken:
         raise unauthorized from None
 
