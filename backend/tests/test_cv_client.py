@@ -200,3 +200,24 @@ async def test_delete_job_raises_on_a_server_error(cv_client):
 
     with pytest.raises(CVServiceError):
         await cv_client.delete_job("job-1")
+
+
+@respx.mock
+async def test_get_video_returns_content_and_type_with_the_api_key(cv_client):
+    route = respx.get(f"{BASE}/v1/jobs/job-1/video").mock(
+        return_value=httpx.Response(200, content=b"bytes", headers={"content-type": "video/mp4"})
+    )
+
+    content, content_type = await cv_client.get_video("job-1")
+
+    assert content == b"bytes"
+    assert content_type == "video/mp4"
+    assert route.calls.last.request.headers["X-API-Key"] == API_KEY
+
+
+@respx.mock
+async def test_get_video_raises_when_not_ready(cv_client):
+    respx.get(f"{BASE}/v1/jobs/job-1/video").mock(return_value=httpx.Response(404))
+
+    with pytest.raises(CVServiceError):
+        await cv_client.get_video("job-1")

@@ -92,3 +92,24 @@ class CVClient:
             raise CVServiceError(
                 f"unexpected status deleting job {job_id}: {response.text}", response.status_code
             )
+
+    async def get_video(self, job_id: str) -> tuple[bytes, str]:
+        """Fetches the annotated video so the backend can proxy it to the end user.
+
+        The CV service's own video URL requires the internal X-API-Key, which end-user
+        clients must never see, so the backend fetches it here and re-serves it under a
+        JWT-authenticated attempt route instead of handing out the CV service's URL.
+        """
+        try:
+            response = await self.http.get(
+                f"{self.base_url}/v1/jobs/{job_id}/video", headers=self._headers, timeout=TIMEOUT
+            )
+        except httpx.HTTPError as exc:
+            raise CVServiceError(f"could not reach the CV service: {exc}") from exc
+
+        if response.status_code != 200:
+            raise CVServiceError(
+                f"unexpected status fetching video for job {job_id}: {response.text}",
+                response.status_code,
+            )
+        return response.content, response.headers.get("content-type", "video/mp4")

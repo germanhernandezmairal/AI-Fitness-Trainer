@@ -45,7 +45,7 @@ async def reconcile_stale_attempts(
             logger.warning("could not poll job %s: %s", attempt.cv_job_id, exc)
             continue
 
-        await apply_job_status(db, attempt, job_status)
+        await apply_job_status(db, attempt, job_status, settings)
         if AttemptStatus(attempt.status).is_terminal:
             moved += 1
 

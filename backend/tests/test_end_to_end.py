@@ -74,6 +74,17 @@ async def test_full_lifecycle_upload_webhook_read_delete(client, auth_headers, s
     assert body["status"] == "completed"
     assert body["result"]["overall_score"] == 82
 
+    # 4b. The annotated_video_url points at our own proxy, not the CV service's
+    # X-API-Key-gated URL, and fetching it streams the video through
+    video_url = body["result"]["annotated_video_url"]
+    assert video_url == f"{settings.backend_public_url}/v1/attempts/{attempt_id}/video"
+    respx.get(f"{settings.cv_service_url}/v1/jobs/{job_id}/video").mock(
+        return_value=httpx.Response(200, content=b"fake-mp4-bytes", headers={"content-type": "video/mp4"})
+    )
+    video = await client.get(f"/v1/attempts/{attempt_id}/video", headers=auth_headers)
+    assert video.status_code == 200
+    assert video.content == b"fake-mp4-bytes"
+
     # 5. It shows up in history
     history = await client.get("/v1/attempts", headers=auth_headers)
     assert any(item["attempt_id"] == attempt_id for item in history.json()["items"])

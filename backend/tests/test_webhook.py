@@ -52,7 +52,8 @@ async def test_applies_a_completed_result(client, session, user, make_attempt, s
     await session.refresh(attempt)
     assert attempt.status == "completed"
     assert attempt.overall_score == 82
-    assert attempt.annotated_video_url == RESULT["annotated_video_url"]
+    assert attempt.annotated_video_url == f"{settings.backend_public_url}/v1/attempts/{attempt.id}/video"
+    assert attempt.result["annotated_video_url"] == attempt.annotated_video_url
     assert attempt.result["algorithm_version"] == "squat-rules-v1"
     assert attempt.completed_at is not None
     assert attempt.error_code is None

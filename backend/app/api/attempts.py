@@ -180,6 +180,31 @@ async def list_attempts(
     )
 
 
+@router.get("/{attempt_id}/video")
+async def get_attempt_video(
+    attempt_id: uuid.UUID, user: CurrentUser, db: DbDep, cv_client: CVClientDep
+) -> Response:
+    """Proxies the annotated video from the CV service.
+
+    The CV service gates this behind its own X-API-Key, which end-user clients must
+    never see, so the backend fetches it here and re-serves it under this
+    JWT-authenticated route instead (see services.attempts.video_url_for).
+    """
+    attempt = await _load_owned_attempt(db, attempt_id, user)
+    if attempt.annotated_video_url is None or attempt.cv_job_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="video not available")
+
+    try:
+        content, content_type = await cv_client.get_video(attempt.cv_job_id)
+    except CVServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"could not fetch the annotated video: {exc}",
+        ) from exc
+
+    return Response(content=content, media_type=content_type)
+
+
 @router.delete("/{attempt_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def erase_attempt(
     attempt_id: uuid.UUID,

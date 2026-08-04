@@ -16,6 +16,16 @@ def callback_url_for(attempt_id: uuid.UUID, settings: Settings) -> str:
     return f"{settings.backend_public_url.rstrip('/')}/v1/cv-callback/{attempt_id}"
 
 
+def video_url_for(attempt_id: uuid.UUID, settings: Settings) -> str:
+    """The URL an end-user client gets for the annotated video.
+
+    Never the CV service's own /v1/jobs/{id}/video URL: that requires the internal
+    X-API-Key, which is a backend<->CV service secret, not something to hand to a
+    user's browser. This route is JWT-authenticated and proxies the video instead.
+    """
+    return f"{settings.backend_public_url.rstrip('/')}/v1/attempts/{attempt_id}/video"
+
+
 async def create_attempt(
     db: AsyncSession,
     user: User,
@@ -84,7 +94,9 @@ async def create_attempt(
     return attempt
 
 
-async def apply_job_status(db: AsyncSession, attempt: Attempt, job_status: JobStatus) -> bool:
+async def apply_job_status(
+    db: AsyncSession, attempt: Attempt, job_status: JobStatus, settings: Settings
+) -> bool:
     """Write a CV result onto an attempt. Returns False if it was already terminal.
 
     Both the webhook (Task 11) and the polling reconciler (Task 13) call this, so a
@@ -100,10 +112,16 @@ async def apply_job_status(db: AsyncSession, attempt: Attempt, job_status: JobSt
         return False
 
     if job_status.status is AttemptStatus.COMPLETED and job_status.result is not None:
+        # Rewrite the CV service's own (X-API-Key-gated) video URL to our proxy route
+        # before it ever reaches the DB or a response — see video_url_for.
+        video_url = video_url_for(attempt.id, settings) if job_status.result.annotated_video_url else None
+        result_dict = job_status.result.model_dump(mode="json")
+        result_dict["annotated_video_url"] = video_url
+
         attempt.status = AttemptStatus.COMPLETED.value
-        attempt.result = job_status.result.model_dump(mode="json")
+        attempt.result = result_dict
         attempt.overall_score = job_status.result.overall_score
-        attempt.annotated_video_url = job_status.result.annotated_video_url
+        attempt.annotated_video_url = video_url
         attempt.error_code = None
         attempt.completed_at = datetime.now(UTC)
     elif job_status.status is AttemptStatus.FAILED and job_status.error is not None:

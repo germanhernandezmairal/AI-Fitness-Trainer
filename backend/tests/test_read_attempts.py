@@ -1,6 +1,9 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import httpx
+import respx
+
 RESULT = {
     "exercise_type": "squat",
     "overall_score": 82,
@@ -67,6 +70,71 @@ async def test_returns_the_error_of_a_failed_attempt(client, auth_headers, user,
     assert body["status"] == "failed"
     assert body["error"]["code"] == "no_pose_detected"
     assert body["result"] is None
+
+
+@respx.mock
+async def test_video_proxies_the_cv_service_with_its_api_key(
+    client, auth_headers, user, make_attempt, settings
+):
+    attempt = await make_attempt(
+        user,
+        status="completed",
+        result=RESULT,
+        overall_score=82,
+        annotated_video_url=f"{settings.backend_public_url}/v1/attempts/x/video",
+        completed_at=datetime.now(UTC),
+    )
+    route = respx.get(f"{settings.cv_service_url}/v1/jobs/{attempt.cv_job_id}/video").mock(
+        return_value=httpx.Response(200, content=b"bytes", headers={"content-type": "video/mp4"})
+    )
+
+    response = await client.get(f"/v1/attempts/{attempt.id}/video", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.content == b"bytes"
+    assert route.calls.last.request.headers["X-API-Key"] == settings.cv_api_key
+
+
+async def test_video_404s_when_the_attempt_has_none(client, auth_headers, user, make_attempt):
+    attempt = await make_attempt(user)  # queued, no result yet
+
+    response = await client.get(f"/v1/attempts/{attempt.id}/video", headers=auth_headers)
+
+    assert response.status_code == 404
+
+
+async def test_video_hides_another_users_attempt(client, auth_headers, other_user, make_attempt):
+    attempt = await make_attempt(
+        other_user,
+        status="completed",
+        result=RESULT,
+        annotated_video_url="http://backend/v1/attempts/x/video",
+        completed_at=datetime.now(UTC),
+    )
+
+    response = await client.get(f"/v1/attempts/{attempt.id}/video", headers=auth_headers)
+
+    assert response.status_code == 404
+
+
+@respx.mock
+async def test_video_502s_when_the_cv_service_is_unreachable(
+    client, auth_headers, user, make_attempt, settings
+):
+    attempt = await make_attempt(
+        user,
+        status="completed",
+        result=RESULT,
+        annotated_video_url=f"{settings.backend_public_url}/v1/attempts/x/video",
+        completed_at=datetime.now(UTC),
+    )
+    respx.get(f"{settings.cv_service_url}/v1/jobs/{attempt.cv_job_id}/video").mock(
+        side_effect=httpx.ConnectError("refused")
+    )
+
+    response = await client.get(f"/v1/attempts/{attempt.id}/video", headers=auth_headers)
+
+    assert response.status_code == 502
 
 
 async def test_hides_another_users_attempt(client, auth_headers, other_user, make_attempt):

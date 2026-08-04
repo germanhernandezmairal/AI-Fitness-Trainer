@@ -56,5 +56,5 @@ async def receive_result(
     if attempt is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="attempt not found")
 
-    await apply_job_status(db, attempt, job_status)
+    await apply_job_status(db, attempt, job_status, settings)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
