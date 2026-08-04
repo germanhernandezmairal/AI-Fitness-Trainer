@@ -32,6 +32,17 @@ docker compose up -d db fake-cv
 BACKEND_PUBLIC_URL=http://host.docker.internal:8000 uv run uvicorn app.main:app --reload
 ```
 
+This uses `fake-cv-service`, which ignores the video and returns a canned result — fast, no
+MediaPipe/OpenCV build, and supports deterministic failure injection (see its README). To exercise
+the real analysis pipeline instead:
+
+```bash
+docker compose --profile real-cv up -d db cv-service
+```
+
+(`cv-service` and `fake-cv` both listen on 9000 and are drop-in replacements for each other —
+don't run both at once.)
+
 Then:
 
 ```bash

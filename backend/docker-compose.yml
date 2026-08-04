@@ -25,5 +25,21 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # The real CV service (MediaPipe/OpenCV). Same port and env vars as fake-cv on purpose — it's
+  # a drop-in replacement for CV_SERVICE_URL, not something to run alongside it. Behind a profile
+  # so a plain `docker compose up` doesn't force the MediaPipe/OpenCV build on everyone; opt in
+  # with `docker compose --profile real-cv up -d db cv-service`.
+  cv-service:
+    build: ../cv-service
+    profiles: ["real-cv"]
+    environment:
+      CV_API_KEY: dev-cv-api-key
+      CV_WEBHOOK_SECRET: dev-webhook-secret-change-me-in-production
+      CV_SERVICE_BASE_URL: http://localhost:9000
+    ports:
+      - "9000:9000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   pgdata:
