@@ -7,6 +7,10 @@ diseño completo, `docs/2026-07-27-cv-gym-exercise-design.md` para el contrato o
 
 ## Instalar
 
+`mediapipe==0.10.14` no tiene wheels para Python 3.13+ (confirmado corriéndolo en macOS/arm64) —
+usa un entorno **Python 3.12** propio para este servicio, distinto del que use `backend/` (ese sí
+puede ir en una versión más nueva; no comparten venv).
+
 Desde la raíz del repo, con el entorno virtual ya activo:
 
 ```bash
