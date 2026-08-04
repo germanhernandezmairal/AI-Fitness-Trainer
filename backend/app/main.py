@@ -6,7 +6,7 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 
-from app.api import attempts, auth_dev, webhooks
+from app.api import attempts, auth, auth_dev, webhooks
 from app.config import get_settings
 from app.db import session_factory
 from app.services.cv_client import CVClient
@@ -51,6 +51,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="AI Fitness Trainer Backend", version="0.1.0", lifespan=lifespan)
 app.include_router(auth_dev.router)
+app.include_router(auth.router)
 app.include_router(attempts.router)
 app.include_router(webhooks.router)
 

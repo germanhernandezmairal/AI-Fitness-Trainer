@@ -17,6 +17,7 @@ dependencies = [
     "email-validator>=2.2",
     "av>=13.1",
     "apscheduler>=3.11",
+    "bcrypt>=4.0",
 ]
 
 [project.optional-dependencies]

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import get_settings
 from app.db import Base
-from app.models import Attempt, User  # noqa: F401  (imported so Base sees the tables)
+from app.models import Attempt, RefreshToken, User  # noqa: F401  (imported so Base sees the tables)
 
 target_metadata = Base.metadata
 

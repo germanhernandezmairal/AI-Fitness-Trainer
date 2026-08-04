@@ -61,7 +61,11 @@ curl -s localhost:8000/v1/attempts/$ATTEMPT -H "Authorization: Bearer $TOKEN" | 
 
 | Method | Path | Boundary | Notes |
 |---|---|---|---|
-| `POST` | `/v1/auth/dev-login` | public | **dev only**, no password; replaced by the auth plan |
+| `POST` | `/v1/auth/dev-login` | public | **dev only**, no password; kept alongside real auth for the local dev loop |
+| `POST` | `/v1/auth/register` | public | email + password, returns an access/refresh token pair |
+| `POST` | `/v1/auth/login` | public | email + password, returns an access/refresh token pair |
+| `POST` | `/v1/auth/refresh` | public | rotates a refresh token; reuse of an already-rotated token revokes the whole session family |
+| `POST` | `/v1/auth/logout` | public | revokes a refresh token, idempotent |
 | `POST` | `/v1/attempts` | public | multipart upload, 202 |
 | `GET` | `/v1/attempts/{id}` | public | poll this for the result |
 | `GET` | `/v1/attempts` | public | paginated history |
@@ -78,6 +82,7 @@ Two APScheduler jobs run inside the app process:
 
 ## Not yet built
 
-- Real authentication (registration, passwords, refresh tokens) — dev-login is a placeholder.
+- Rate limiting on `/v1/auth/login` and `/v1/auth/refresh`.
+- Email verification / password reset — no email-sending infrastructure exists yet.
 - S3/MinIO storage — `LocalFilesystemStorage` is the only `Storage` implementation.
 - Frontend.

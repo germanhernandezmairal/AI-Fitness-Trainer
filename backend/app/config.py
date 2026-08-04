@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     test_database_url: str = "postgresql+asyncpg://fitness:fitness@localhost:5432/fitness_test"
 
     jwt_secret: str = "dev-only-change-me-not-for-production-use"
-    jwt_ttl_seconds: int = 86400
+    jwt_ttl_seconds: int = 86400  # dev-login only (app/api/auth_dev.py)
+
+    access_token_ttl_seconds: int = 900  # 15 min; real login/register/refresh
+    refresh_token_ttl_seconds: int = 2_592_000  # 30 days
 
     cv_service_url: str = "http://localhost:9000"
     cv_api_key: str = "dev-cv-api-key"
