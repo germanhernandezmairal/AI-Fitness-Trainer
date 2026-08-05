@@ -6,12 +6,6 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
-    environmentOptions: {
-      jsdom: {
-        localStorage: true,
-      },
-    },
-    globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["tests/unit/**/*.test.{ts,tsx}"],
     passWithNoTests: true,
