@@ -86,4 +86,27 @@ describe("apiFetch", () => {
     await expect(apiFetch("/v1/attempts")).rejects.toThrow(AuthError);
     expect(fetch).toHaveBeenCalledTimes(3);
   });
+
+  it("deduplicates concurrent refresh attempts to prevent token-reuse detection", async () => {
+    setTokens({ access_token: "expired", refresh_token: "good-refresh", token_type: "bearer" });
+    // Mock sequence for two concurrent calls: both 401, one refresh, both retries succeed
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(401, {})) // call 1 original request
+      .mockResolvedValueOnce(jsonResponse(401, {})) // call 2 original request
+      .mockResolvedValueOnce(
+        jsonResponse(200, { access_token: "fresh", refresh_token: "rotated", token_type: "bearer" }),
+      ) // shared refresh (only called once)
+      .mockResolvedValueOnce(jsonResponse(200, { ok: true })) // call 1 retry
+      .mockResolvedValueOnce(jsonResponse(200, { ok: true })); // call 2 retry
+
+    // Fire two concurrent calls that both 401
+    const result = await Promise.all([apiFetch("/v1/attempts"), apiFetch("/v1/other")]);
+
+    // Both should succeed after the shared refresh
+    expect(result[0].status).toBe(200);
+    expect(result[1].status).toBe(200);
+    // Refresh endpoint should be called exactly once despite two 401s
+    const refreshCalls = vi.mocked(fetch).mock.calls.filter((call) => call[0] === `${BASE_URL}/v1/auth/refresh`);
+    expect(refreshCalls).toHaveLength(1);
+  });
 });

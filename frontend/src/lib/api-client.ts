@@ -12,6 +12,7 @@ export class AuthError extends Error {
 
 let accessToken: string | null = null;
 let authFailureCallback: (() => void) | null = null;
+let refreshPromise: Promise<boolean> | null = null;
 
 export function getAccessToken(): string | null {
   return accessToken;
@@ -67,19 +68,32 @@ function buildHeaders(init?: RequestInit): Record<string, string> {
 }
 
 async function refreshAccessToken(): Promise<boolean> {
+  // If a refresh is already in flight, wait for it instead of starting a new one.
+  // This prevents concurrent callers from each using the same refresh token,
+  // which could look like token theft to a server with token-reuse detection.
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
   const refreshToken = getStoredRefreshToken();
   if (!refreshToken) return false;
 
-  const response = await fetch(`${BASE_URL}/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  if (!response.ok) return false;
+  refreshPromise = (async () => {
+    const response = await fetch(`${BASE_URL}/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!response.ok) return false;
 
-  const tokens = (await response.json()) as TokenPair;
-  setTokens(tokens);
-  return true;
+    const tokens = (await response.json()) as TokenPair;
+    setTokens(tokens);
+    return true;
+  })().finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
 }
 
 /**
