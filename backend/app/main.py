@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import attempts, auth, auth_dev, webhooks
 from app.config import get_settings
@@ -50,6 +51,13 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="AI Fitness Trainer Backend", version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_allowed_origins,
+    allow_credentials=False,  # tokens travel in the Authorization header, not cookies
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 app.include_router(auth_dev.router)
 app.include_router(auth.router)
 app.include_router(attempts.router)
