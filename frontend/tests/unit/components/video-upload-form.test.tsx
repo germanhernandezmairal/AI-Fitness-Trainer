@@ -102,4 +102,20 @@ describe("VideoUploadForm", () => {
     expect(await screen.findByText(/60 seconds/i)).toBeInTheDocument();
     expect(onUploaded).not.toHaveBeenCalled();
   });
+
+  it("shows an error message on network failure", async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("network error"));
+    const onUploaded = vi.fn();
+    render(<VideoUploadForm onUploaded={onUploaded} />);
+    const user = userEvent.setup();
+
+    const input = screen.getByLabelText(/video file/i) as HTMLInputElement;
+    const file = makeFile("clip.mp4", 1000, "video/mp4");
+    uploadFileToInput(input, file);
+
+    await user.click(screen.getByRole("button", { name: /upload/i }));
+
+    expect(await screen.findByText(/could not upload the video/i)).toBeInTheDocument();
+    expect(onUploaded).not.toHaveBeenCalled();
+  });
 });

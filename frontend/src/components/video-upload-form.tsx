@@ -44,23 +44,27 @@ export function VideoUploadForm({ onUploaded }: { onUploaded: (attemptId: string
     setError(null);
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("video", file);
-      formData.append("exercise_type", "squat");
+      try {
+        const formData = new FormData();
+        formData.append("video", file);
+        formData.append("exercise_type", "squat");
 
-      const response = await apiFetch("/v1/attempts", { method: "POST", body: formData });
+        const response = await apiFetch("/v1/attempts", { method: "POST", body: formData });
 
-      if (response.status === 202) {
-        const created = (await response.json()) as AttemptCreated;
-        onUploaded(created.attempt_id);
-        return;
+        if (response.status === 202) {
+          const created = (await response.json()) as AttemptCreated;
+          onUploaded(created.attempt_id);
+          return;
+        }
+        if (response.status === 400) {
+          const body = (await response.json()) as UploadErrorResponse;
+          setError(uploadErrorMessage(body.error.code));
+          return;
+        }
+        setError("Could not upload the video. Try again.");
+      } catch {
+        setError("Could not upload the video. Try again.");
       }
-      if (response.status === 400) {
-        const body = (await response.json()) as UploadErrorResponse;
-        setError(uploadErrorMessage(body.error.code));
-        return;
-      }
-      setError("Could not upload the video. Try again.");
     } finally {
       setIsUploading(false);
     }
