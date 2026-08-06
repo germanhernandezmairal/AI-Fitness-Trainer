@@ -45,6 +45,22 @@ describe("useAuth", () => {
     expect(localStorage.getItem("refresh_token")).toBe("r1");
   });
 
+  it("rejects with a user-friendly error on wrong password", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse(401, { error: "Unauthorized" }),
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await expect(
+      act(async () => {
+        await result.current.login("me@example.com", "wrong-password");
+      }),
+    ).rejects.toThrow("Invalid email or password");
+
+    expect(result.current.isAuthenticated).toBe(false);
+  });
+
   it("becomes authenticated after a successful register", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       jsonResponse(201, { access_token: "a1", refresh_token: "r1", token_type: "bearer" }),

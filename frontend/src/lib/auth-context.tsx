@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { apiFetch, getStoredRefreshToken, onAuthFailure, setTokens } from "@/lib/api-client";
+import { apiFetch, getStoredRefreshToken, onAuthFailure, setTokens, AuthError } from "@/lib/api-client";
 import type { TokenPair } from "@/lib/types";
 
 interface AuthContextValue {
@@ -15,11 +15,21 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function requestTokenPair(path: string, email: string, password: string): Promise<TokenPair> {
-  const response = await apiFetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  let response: Response;
+  try {
+    response = await apiFetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      // On login/register endpoints, a 401 means bad credentials, not session expiration.
+      // Don't let the global auth-failure signal treat it as session invalidation.
+      throw new Error("Invalid email or password");
+    }
+    throw error; // Network errors, etc. propagate as-is
+  }
   if (!response.ok) {
     throw new Error(`request to ${path} failed with status ${response.status}`);
   }
