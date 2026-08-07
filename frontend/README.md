@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Fitness Trainer — Frontend
 
-## Getting Started
+Next.js (App Router) app for the AI Fitness Trainer: register/login, upload a squat
+video, poll for and view AI-powered form feedback, browse attempt history, and delete
+an attempt. Talks directly to the FastAPI backend over CORS.
 
-First, run the development server:
+## Setup
+
+```bash
+cd frontend
+cp .env.local.example .env.local
+npm install
+```
+
+## Run
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Requires the backend (and, for a
+real upload to resolve, the CV service) running — see `backend/README.md`'s "Run the
+whole loop locally" section.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Test
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Unit tests (Vitest + React Testing Library):
 
-## Learn More
+```bash
+npm test
+```
 
-To learn more about Next.js, take a look at the following resources:
+End-to-end tests (Playwright) — a separate command, since it drives a real browser
+against a running app and backend:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npx playwright test
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The e2e suite starts its own `next dev` server automatically, but expects the backend
+and CV service (fake or real) to already be running locally on `localhost:8000` /
+`localhost:9000` — see `backend/README.md`'s "Run the whole loop locally" section.
 
-## Deploy on Vercel
+## Lint / build
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npm run build
+```
