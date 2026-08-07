@@ -16,6 +16,9 @@ docker compose exec db psql -U fitness -c "CREATE DATABASE fitness_test;"
 uv run alembic upgrade head
 ```
 
+See `.env.example` for all variables — including `CORS_ALLOWED_ORIGINS`, the JSON list of
+origins allowed to call the API (e.g. the Next.js dev server at `http://localhost:3000`).
+
 ## Test
 
 ```bash
