@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAttempts } from "@/hooks/use-attempts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { AttemptSummary } from "@/lib/types";
 
 export function AttemptHistoryList() {
@@ -26,7 +26,11 @@ export function AttemptHistoryList() {
   if (isLoading && items.length === 0) return <p>Loading history...</p>;
 
   if (isError) {
-    return <Alert variant="destructive">Could not load your attempt history. Try again.</Alert>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>Could not load your attempt history. Try again.</AlertDescription>
+      </Alert>
+    );
   }
 
   return (

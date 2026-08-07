@@ -1,7 +1,14 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import { VideoUploadForm } from "@/components/video-upload-form";
+
+function wrapper({ children }: { children: ReactNode }) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
 
 function makeFile(name: string, sizeBytes: number, type: string): File {
   const file = new File([new Uint8Array(sizeBytes)], name, { type });
@@ -37,7 +44,7 @@ describe("VideoUploadForm", () => {
 
   it("rejects an unsupported extension before uploading", async () => {
     const onUploaded = vi.fn();
-    render(<VideoUploadForm onUploaded={onUploaded} />);
+    render(<VideoUploadForm onUploaded={onUploaded} />, { wrapper });
     const user = userEvent.setup();
 
     const input = screen.getByLabelText(/video file/i) as HTMLInputElement;
@@ -52,7 +59,7 @@ describe("VideoUploadForm", () => {
 
   it("rejects a file over 100MB before uploading", async () => {
     const onUploaded = vi.fn();
-    render(<VideoUploadForm onUploaded={onUploaded} />);
+    render(<VideoUploadForm onUploaded={onUploaded} />, { wrapper });
     const user = userEvent.setup();
 
     const input = screen.getByLabelText(/video file/i) as HTMLInputElement;
@@ -70,7 +77,7 @@ describe("VideoUploadForm", () => {
       new Response(JSON.stringify({ attempt_id: "attempt-1", status: "queued" }), { status: 202 }),
     );
     const onUploaded = vi.fn();
-    render(<VideoUploadForm onUploaded={onUploaded} />);
+    render(<VideoUploadForm onUploaded={onUploaded} />, { wrapper });
     const user = userEvent.setup();
 
     const input = screen.getByLabelText(/video file/i) as HTMLInputElement;
@@ -90,7 +97,7 @@ describe("VideoUploadForm", () => {
       ),
     );
     const onUploaded = vi.fn();
-    render(<VideoUploadForm onUploaded={onUploaded} />);
+    render(<VideoUploadForm onUploaded={onUploaded} />, { wrapper });
     const user = userEvent.setup();
 
     const input = screen.getByLabelText(/video file/i) as HTMLInputElement;
@@ -106,7 +113,7 @@ describe("VideoUploadForm", () => {
   it("shows an error message on network failure", async () => {
     vi.mocked(fetch).mockRejectedValueOnce(new Error("network error"));
     const onUploaded = vi.fn();
-    render(<VideoUploadForm onUploaded={onUploaded} />);
+    render(<VideoUploadForm onUploaded={onUploaded} />, { wrapper });
     const user = userEvent.setup();
 
     const input = screen.getByLabelText(/video file/i) as HTMLInputElement;

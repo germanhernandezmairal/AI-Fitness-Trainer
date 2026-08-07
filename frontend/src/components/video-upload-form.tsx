@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { uploadErrorMessage } from "@/lib/upload-error-messages";
 import type { AttemptCreated, UploadErrorResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const ALLOWED_EXTENSIONS = [".mp4", ".mov"];
 const MAX_BYTES = 104_857_600;
@@ -17,6 +18,7 @@ function hasAllowedExtension(filename: string): boolean {
 }
 
 export function VideoUploadForm({ onUploaded }: { onUploaded: (attemptId: string) => void }) {
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -53,6 +55,7 @@ export function VideoUploadForm({ onUploaded }: { onUploaded: (attemptId: string
 
         if (response.status === 202) {
           const created = (await response.json()) as AttemptCreated;
+          await queryClient.invalidateQueries({ queryKey: ["attempts"] });
           onUploaded(created.attempt_id);
           return;
         }
@@ -72,7 +75,11 @@ export function VideoUploadForm({ onUploaded }: { onUploaded: (attemptId: string
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <Alert variant="destructive">{error}</Alert>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       <div className="space-y-1">
         <Label htmlFor="video-file">Video file</Label>
         <input
