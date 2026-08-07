@@ -14,6 +14,9 @@ export function useAttemptVideo(videoUrl: string | null): UseAttemptVideoResult 
 
   useEffect(() => {
     if (!videoUrl) {
+      // Clearing derived state synchronously when the input becomes null, before
+      // any fetch starts — not fighting with any subscription, so this is safe.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBlobUrl(null);
       return;
     }

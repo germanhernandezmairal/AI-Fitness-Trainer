@@ -47,6 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const existingRefreshToken = getStoredRefreshToken();
     if (!existingRefreshToken) {
+      // Clearing derived loading state synchronously when there's no stored session
+      // to check, before any fetch starts — not fighting with any subscription.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoading(false);
       return;
     }
