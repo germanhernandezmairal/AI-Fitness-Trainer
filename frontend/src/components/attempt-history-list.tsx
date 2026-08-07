@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useAttempts } from "@/hooks/use-attempts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import type { AttemptSummary } from "@/lib/types";
 
 export function AttemptHistoryList() {
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [accumulated, setAccumulated] = useState<AttemptSummary[]>([]);
   const currentCursor = cursors[cursors.length - 1];
-  const { data, isLoading } = useAttempts(currentCursor);
+  const { data, isLoading, isError } = useAttempts(currentCursor);
 
   function handleLoadMore() {
     if (data?.items && data.next_cursor) {
@@ -23,6 +24,10 @@ export function AttemptHistoryList() {
   const items = [...accumulated, ...(data?.items ?? [])];
 
   if (isLoading && items.length === 0) return <p>Loading history...</p>;
+
+  if (isError) {
+    return <Alert variant="destructive">Could not load your attempt history. Try again.</Alert>;
+  }
 
   return (
     <div className="space-y-2">

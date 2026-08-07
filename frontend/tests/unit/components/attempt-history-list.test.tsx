@@ -70,4 +70,12 @@ describe("AttemptHistoryList", () => {
     await waitFor(() => expect(screen.getByText(/queued/i)).toBeInTheDocument());
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+
+  it("shows an error message when the history fails to load", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("Internal Server Error", { status: 500 }));
+
+    render(<AttemptHistoryList />, { wrapper });
+
+    expect(await screen.findByText(/could not load your attempt history/i)).toBeInTheDocument();
+  });
 });
