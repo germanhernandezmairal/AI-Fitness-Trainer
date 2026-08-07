@@ -52,4 +52,20 @@ describe("AttemptResult", () => {
     const video = screen.getByTestId("annotated-video") as HTMLVideoElement;
     expect(video.src).toBe("blob:mock-url");
   });
+
+  it("shows human-readable copy for a rep's form errors", () => {
+    render(<AttemptResult result={RESULT} />);
+
+    expect(screen.getByText(/knees caving in/i)).toBeInTheDocument();
+  });
+
+  it("does not render an errors section for a rep with no errors", () => {
+    const clean: AnalysisResult = {
+      ...RESULT,
+      reps: [{ ...RESULT.reps[0], errors: [] }],
+    };
+    render(<AttemptResult result={clean} />);
+
+    expect(screen.queryByText(/knees caving in/i)).not.toBeInTheDocument();
+  });
 });

@@ -2,12 +2,14 @@
 
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AttemptResult } from "@/components/attempt-result";
 import { useAttempt } from "@/hooks/use-attempt";
 import { apiFetch } from "@/lib/api-client";
+import { failureMessage } from "@/lib/failure-messages";
 import { Button } from "@/components/ui/button";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AttemptDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -21,6 +23,7 @@ export default function AttemptDetailPage({ params }: { params: Promise<{ id: st
 function AttemptDetailContent({ attemptId }: { attemptId: string }) {
   const { data, isLoading, error } = useAttempt(attemptId);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -30,6 +33,7 @@ function AttemptDetailContent({ attemptId }: { attemptId: string }) {
     try {
       const response = await apiFetch(`/v1/attempts/${attemptId}`, { method: "DELETE" });
       if (response.status !== 204) throw new Error("delete failed");
+      await queryClient.invalidateQueries({ queryKey: ["attempts"] });
       router.push("/");
     } catch {
       setDeleteError("Could not delete this attempt. Try again.");
@@ -50,12 +54,18 @@ function AttemptDetailContent({ attemptId }: { attemptId: string }) {
       )}
 
       {data.status === "failed" && data.error && (
-        <Alert variant="destructive">{data.error.message}</Alert>
+        <Alert variant="destructive">
+          <AlertDescription>{failureMessage(data.error.code)}</AlertDescription>
+        </Alert>
       )}
 
       {data.status === "completed" && data.result && <AttemptResult result={data.result} />}
 
-      {deleteError && <Alert variant="destructive">{deleteError}</Alert>}
+      {deleteError && (
+        <Alert variant="destructive">
+          <AlertDescription>{deleteError}</AlertDescription>
+        </Alert>
+      )}
       <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
         {isDeleting ? "Deleting..." : "Delete this attempt"}
       </Button>
