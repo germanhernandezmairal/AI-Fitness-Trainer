@@ -35,8 +35,8 @@ describe("LoginPage", () => {
     expect(mockPush).toHaveBeenCalledWith("/");
   });
 
-  it("shows an error message when login fails", async () => {
-    mockLogin.mockRejectedValueOnce(new Error("request to /v1/auth/login failed with status 401"));
+  it("shows an incorrect-credentials message when login rejects with invalid credentials", async () => {
+    mockLogin.mockRejectedValueOnce(new Error("Invalid email or password"));
     render(<LoginPage />);
     const user = userEvent.setup();
 
@@ -45,5 +45,17 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /log in/i }));
 
     expect(await screen.findByText(/incorrect email or password/i)).toBeInTheDocument();
+  });
+
+  it("shows a generic error message when login fails for a non-credentials reason", async () => {
+    mockLogin.mockRejectedValueOnce(new Error("Failed to fetch"));
+    render(<LoginPage />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), "me@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse-battery-staple");
+    await user.click(screen.getByRole("button", { name: /log in/i }));
+
+    expect(await screen.findByText(/couldn't reach the server/i)).toBeInTheDocument();
   });
 });

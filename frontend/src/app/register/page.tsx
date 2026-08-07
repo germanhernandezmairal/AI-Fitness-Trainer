@@ -2,12 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -46,7 +47,11 @@ export default function RegisterPage() {
     <Card className="mx-auto mt-16 max-w-sm p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <h1 className="text-xl font-semibold">Create account</h1>
-        {error && <Alert variant="destructive">{error}</Alert>}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <div className="space-y-1">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -70,6 +75,12 @@ export default function RegisterPage() {
         <Button type="submit" disabled={isSubmitting} className="w-full">
           Create account
         </Button>
+        <p className="text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link href="/login" className="underline underline-offset-2">
+            Log in
+          </Link>
+        </p>
       </form>
     </Card>
   );

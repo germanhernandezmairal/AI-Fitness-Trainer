@@ -2,12 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -24,8 +25,13 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.push("/");
-    } catch {
-      setError("Incorrect email or password.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message === "Invalid email or password") {
+        setError("Incorrect email or password.");
+      } else {
+        setError("Couldn't reach the server. Try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -35,7 +41,11 @@ export default function LoginPage() {
     <Card className="mx-auto mt-16 max-w-sm p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <h1 className="text-xl font-semibold">Log in</h1>
-        {error && <Alert variant="destructive">{error}</Alert>}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <div className="space-y-1">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -59,6 +69,12 @@ export default function LoginPage() {
         <Button type="submit" disabled={isSubmitting} className="w-full">
           Log in
         </Button>
+        <p className="text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link href="/register" className="underline underline-offset-2">
+            Create one
+          </Link>
+        </p>
       </form>
     </Card>
   );
