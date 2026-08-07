@@ -683,6 +683,10 @@ describe("useAuth", () => {
   });
 
   it("becomes unauthenticated when apiFetch reports an auth failure", async () => {
+    let registeredCallback: (() => void) | undefined;
+    vi.spyOn(apiClient, "onAuthFailure").mockImplementation((callback) => {
+      registeredCallback = callback;
+    });
     vi.mocked(fetch).mockResolvedValueOnce(
       jsonResponse(200, { access_token: "a1", refresh_token: "r1", token_type: "bearer" }),
     );
@@ -691,12 +695,15 @@ describe("useAuth", () => {
     await act(async () => {
       await result.current.login("me@example.com", "correct-horse-battery-staple");
     });
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(registeredCallback).toBeDefined();
 
     act(() => {
       // Simulate what api-client does internally when a retried request still 401s.
-      apiClient.setTokens(null);
-      (apiClient as unknown as { onAuthFailure: (cb: () => void) => void });
+      registeredCallback?.();
     });
+
+    expect(result.current.isAuthenticated).toBe(false);
   });
 });
 ```
@@ -797,7 +804,7 @@ export function useAuth(): AuthContextValue {
 }
 ```
 
-Note on the last test in Step 1 (`"becomes unauthenticated when apiFetch reports an auth failure"`): its assertions were folded into verifying the `onAuthFailure` registration happens on mount — the real end-to-end behavior (a live 401-after-retry flipping `isAuthenticated`) is exercised by Task 14's Playwright test, which runs against the real backend rather than a mocked one.
+Note on the last test in Step 1 (`"becomes unauthenticated when apiFetch reports an auth failure"`): it spies on `onAuthFailure` to capture the callback `AuthProvider` registers on mount, then invokes that callback directly to simulate what `api-client` does internally when a retried request still 401s — asserting `isAuthenticated` flips to `false`. The real end-to-end trigger (a live 401-after-retry) is exercised by Task 14's Playwright test, which runs against the real backend rather than a mocked one.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1585,13 +1592,21 @@ describe("useAttempt", () => {
     await waitFor(() => expect(result.current.data?.status).toBe("completed"));
   });
 
-  it("has a refetchInterval configured for polling", () => {
-    // useAttempt must configure TanStack Query's refetchInterval as a function of the
-    // latest data so polling stops once the attempt reaches a terminal status. We verify
-    // this indirectly by checking the query's options rather than waiting on real timers.
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({ attempt_id: "a1", status: "queued" }));
-    const { result } = renderHook(() => useAttempt("a1"), { wrapper });
-    expect(result.current.isPending || result.current.isFetching || true).toBe(true);
+  it("stops polling once the attempt reaches a terminal status", async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ attempt_id: "a1", status: "completed" }));
+
+    renderHook(() => useAttempt("a1"), { wrapper });
+
+    // Let the initial fetch (a resolved promise) settle before advancing fake timers.
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+
+    // Advance past several would-be poll intervals; refetchInterval must have returned
+    // false once status was "completed" on the very first response, so no more fetches fire.
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 });
 ```

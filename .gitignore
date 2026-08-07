@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.local.example
 
 # --- Node / web app ---
 node_modules/
@@ -43,6 +44,7 @@ uploads/
 Thumbs.db
 .vscode/
 .idea/
+._*
 
 # --- Backend ---
 backend/.venv/
