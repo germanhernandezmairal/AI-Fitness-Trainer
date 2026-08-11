@@ -60,6 +60,22 @@ ATTEMPT=$(curl -s -X POST localhost:8000/v1/attempts \
 curl -s localhost:8000/v1/attempts/$ATTEMPT -H "Authorization: Bearer $TOKEN" | jq
 ```
 
+### With the frontend
+
+To see results in the actual UI instead of raw JSON — e.g. to check that `rep.errors`
+(`knee_valgus`/`insufficient_depth`/`excessive_forward_lean`) renders correctly while working on
+`cv-service/pipeline.py`'s detection logic — start the frontend alongside either CV setup above:
+
+```bash
+cd frontend && npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000), register, and upload a squat video from
+there. `CORS_ALLOWED_ORIGINS` already permits `http://localhost:3000` by default (see `.env.example`
+above), so no extra config is needed. This is the same combination Task 14's e2e verification used
+(Postgres + backend + frontend + a CV service, real or fake, all running locally at once) — see
+`frontend/README.md` for its own setup/test commands.
+
 ## Endpoints
 
 | Method | Path | Boundary | Notes |
@@ -88,4 +104,3 @@ Two APScheduler jobs run inside the app process:
 - Rate limiting on `/v1/auth/login` and `/v1/auth/refresh`.
 - Email verification / password reset — no email-sending infrastructure exists yet.
 - S3/MinIO storage — `LocalFilesystemStorage` is the only `Storage` implementation.
-- Frontend.
