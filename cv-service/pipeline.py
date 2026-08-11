@@ -21,6 +21,12 @@ GOOD_DEPTH_MIN = 70.0  # rango de profundidad considerado buena sentadilla
 GOOD_DEPTH_MAX = 100.0
 PENALTY_PER_DEGREE = 3  # puntos que se restan del score por cada grado fuera del rango bueno
 
+# 'mp4v' (MPEG-4 Part 2) es lo que probaría cualquiera primero, pero los navegadores no lo
+# decodifican en <video> -- solo H.264/AVC, VP8/VP9 o AV1. 'avc1' sí produce H.264 real con este
+# build de OpenCV (confirmado: writer.isOpened() y el fourcc leído de vuelta es 'h264'), sin
+# necesitar un post-proceso con ffmpeg.
+ANNOTATED_VIDEO_FOURCC = cv2.VideoWriter_fourcc(*"avc1")
+
 
 class NoPoseDetectedError(Exception):
     """No se detectó a ninguna persona en ningún frame del video."""
@@ -143,7 +149,7 @@ def analizar_video(input_path: Path, output_path: Path) -> dict:
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    writer = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    writer = cv2.VideoWriter(str(output_path), ANNOTATED_VIDEO_FOURCC, fps, (width, height))
 
     pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 

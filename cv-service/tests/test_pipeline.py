@@ -1,3 +1,8 @@
+import os
+import tempfile
+
+import cv2
+import numpy as np
 import pytest
 
 import pipeline
@@ -50,3 +55,30 @@ def test_segment_reps_ignores_an_incomplete_repetition():
     reps = pipeline.segment_reps(detections, fps=30.0)
 
     assert reps == []
+
+
+def test_annotated_video_fourcc_produces_a_browser_playable_codec():
+    # No usa MediaPipe -- solo cv2.VideoWriter/VideoCapture con datos sintéticos, así
+    # que sigue la misma regla que el resto de este archivo (funciones puras con datos
+    # sintéticos). 'mp4v' (MPEG-4 Part 2) abre y "funciona" para OpenCV, pero los
+    # navegadores no lo decodifican en <video> -- solo H.264/AVC, VP8/VP9 o AV1. Este
+    # test existe para que un futuro cambio a un fourcc no reproducible en navegador
+    # falle aquí, en vez de descubrirse a mano viendo un video que no reproduce.
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        output_path = os.path.join(tmp_dir, "annotated.mp4")
+
+        writer = cv2.VideoWriter(output_path, pipeline.ANNOTATED_VIDEO_FOURCC, 25, (64, 48))
+        assert writer.isOpened()
+        frame = np.zeros((48, 64, 3), dtype=np.uint8)
+        for _ in range(5):
+            writer.write(frame)
+        writer.release()
+
+        cap = cv2.VideoCapture(output_path)
+        fourcc_read_back = int(cap.get(cv2.CAP_PROP_FOURCC))
+        codec = "".join(chr((fourcc_read_back >> (8 * i)) & 0xFF) for i in range(4))
+        cap.release()
+
+        assert codec.lower() in ("h264", "avc1"), (
+            f"expected a browser-playable codec (h264/avc1), got {codec!r}"
+        )
