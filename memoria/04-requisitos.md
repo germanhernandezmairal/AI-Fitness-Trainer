@@ -139,10 +139,10 @@ mezclan ambas cosas en una sola afirmación.
 
 ### Seguridad
 
-- **Real:** autenticación JWT (access token en memoria, refresh token opaco y hasheado en
-  `localStorage`), revocación en bloque de todos los refresh tokens de un usuario ante detección
-  de reuso, firma HMAC-SHA256 en los webhooks entre backend y cv-service
-  (`backend/app/security/signing.py`).
+- **Real:** autenticación JWT (access token en memoria, refresh token opaco almacenado sin hashear
+  en `localStorage` del cliente pero hasheado con SHA-256 en la base de datos del backend),
+  revocación en bloque de todos los refresh tokens de un usuario ante detección de reuso, firma
+  HMAC-SHA256 en los webhooks entre backend y cv-service (`backend/app/security/signing.py`).
 - **Objetivo:** — ya cumplido; se documenta como logrado, no como pendiente.
 
 ### Disponibilidad
@@ -155,7 +155,7 @@ mezclan ambas cosas en una sola afirmación.
 ### Accesibilidad (WCAG)
 
 - **Real:** no se ha realizado una auditoría formal de accesibilidad; el frontend usa componentes
-  de shadcn/ui (basados en Radix UI, accesibles por defecto), pero esto no se ha verificado
+  de shadcn/ui (basados en Base UI, accesibles por defecto), pero esto no se ha verificado
   explícitamente contra WCAG en este proyecto.
 - **Objetivo:** alcanzar conformidad WCAG 2.1 nivel AA, a confirmar con una auditoría (p. ej.
   Lighthouse o axe).
