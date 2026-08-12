@@ -8,6 +8,13 @@ import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { AttemptSummary } from "@/lib/types";
 
+const STATUS_PILL_CLASSES: Record<AttemptSummary["status"], string> = {
+  queued: "bg-muted text-muted-foreground",
+  processing: "bg-muted text-muted-foreground",
+  completed: "bg-primary/10 text-primary",
+  failed: "bg-destructive/10 text-destructive",
+};
+
 export function AttemptHistoryList() {
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [accumulated, setAccumulated] = useState<AttemptSummary[]>([]);
@@ -37,10 +44,14 @@ export function AttemptHistoryList() {
     <div className="space-y-2">
       {items.map((attempt) => (
         <Link key={attempt.attempt_id} href={`/attempts/${attempt.attempt_id}`}>
-          <Card className="flex justify-between p-3">
-            <span>{attempt.exercise_type}</span>
-            <span>{attempt.status}</span>
-            <span>{attempt.overall_score ?? "-"}</span>
+          <Card className="flex items-center justify-between p-3 transition-colors hover:bg-muted/50">
+            <span className="text-sm font-medium capitalize">{attempt.exercise_type}</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_PILL_CLASSES[attempt.status]}`}
+            >
+              {attempt.status}
+            </span>
+            <span className="text-lg font-semibold">{attempt.overall_score ?? "-"}</span>
           </Card>
         </Link>
       ))}

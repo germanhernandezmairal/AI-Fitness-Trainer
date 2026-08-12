@@ -78,4 +78,33 @@ describe("AttemptHistoryList", () => {
 
     expect(await screen.findByText(/could not load your attempt history/i)).toBeInTheDocument();
   });
+
+  it("gives each status a distinct pill style", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          items: [
+            { attempt_id: "a1", exercise_type: "squat", status: "completed", overall_score: 82, created_at: "2026-08-04T10:00:00Z" },
+            { attempt_id: "a2", exercise_type: "squat", status: "failed", overall_score: null, created_at: "2026-08-04T09:00:00Z" },
+          ],
+          next_cursor: null,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(<AttemptHistoryList />, { wrapper });
+
+    await waitFor(() => {
+      const completedPills = screen.getAllByText("completed");
+      const completedPill = completedPills.find((el) => el.className.includes("text-primary"));
+      expect(completedPill?.className).toContain("text-primary");
+    });
+
+    await waitFor(() => {
+      const failedPills = screen.getAllByText("failed");
+      const failedPill = failedPills.find((el) => el.className.includes("text-destructive"));
+      expect(failedPill?.className).toContain("text-destructive");
+    });
+  });
 });
