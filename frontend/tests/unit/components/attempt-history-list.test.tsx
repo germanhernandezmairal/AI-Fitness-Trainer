@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
@@ -19,6 +19,7 @@ describe("AttemptHistoryList", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -95,16 +96,10 @@ describe("AttemptHistoryList", () => {
 
     render(<AttemptHistoryList />, { wrapper });
 
-    await waitFor(() => {
-      const completedPills = screen.getAllByText("completed");
-      const completedPill = completedPills.find((el) => el.className.includes("text-primary"));
-      expect(completedPill?.className).toContain("text-primary");
-    });
+    const completedPill = await screen.findByText("completed");
+    const failedPill = screen.getByText("failed");
 
-    await waitFor(() => {
-      const failedPills = screen.getAllByText("failed");
-      const failedPill = failedPills.find((el) => el.className.includes("text-destructive"));
-      expect(failedPill?.className).toContain("text-destructive");
-    });
+    expect(completedPill.className).toContain("text-primary");
+    expect(failedPill.className).toContain("text-destructive");
   });
 });
