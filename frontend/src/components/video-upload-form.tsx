@@ -87,6 +87,7 @@ export function VideoUploadForm({ onUploaded }: { onUploaded: (attemptId: string
           type="file"
           accept="video/mp4,video/quicktime"
           onChange={handleFileChange}
+          className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground file:transition-colors hover:file:bg-primary/90"
         />
       </div>
       <Button type="submit" disabled={isUploading}>
