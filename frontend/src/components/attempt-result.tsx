@@ -13,8 +13,14 @@ export function AttemptResult({ result }: { result: AnalysisResult }) {
   return (
     <div className="space-y-4">
       <Card className="p-4">
-        <p className="text-3xl font-bold">{result.overall_score} / 100</p>
-        <p className="text-muted-foreground">{result.summary}</p>
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Overall score
+        </p>
+        <p className="text-4xl font-bold text-primary">
+          {result.overall_score}
+          <span className="text-lg font-normal text-muted-foreground"> / 100</span>
+        </p>
+        <p className="mt-2 text-muted-foreground">{result.summary}</p>
       </Card>
 
       <ul className="space-y-2">

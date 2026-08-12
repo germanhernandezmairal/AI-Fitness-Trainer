@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AttemptResult } from "@/components/attempt-result";
+import { AppShell } from "@/components/app-shell";
 import { useAttempt } from "@/hooks/use-attempt";
 import { apiFetch } from "@/lib/api-client";
 import { failureMessage } from "@/lib/failure-messages";
@@ -20,7 +21,7 @@ export default function AttemptDetailPage({ params }: { params: Promise<{ id: st
   );
 }
 
-function AttemptDetailContent({ attemptId }: { attemptId: string }) {
+export function AttemptDetailContent({ attemptId }: { attemptId: string }) {
   const { data, isLoading, error } = useAttempt(attemptId);
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -41,34 +42,36 @@ function AttemptDetailContent({ attemptId }: { attemptId: string }) {
     }
   }
 
-  if (isLoading) return <p className="p-6">Loading...</p>;
-  if (error || !data) return <p className="p-6">Could not load this attempt.</p>;
+  if (isLoading) return <AppShell><p className="p-6">Loading...</p></AppShell>;
+  if (error || !data) return <AppShell><p className="p-6">Could not load this attempt.</p></AppShell>;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-6">
-      <h1 className="text-2xl font-semibold">Attempt</h1>
-      <p className="text-muted-foreground">Status: {data.status}</p>
+    <AppShell>
+      <div className="mx-auto max-w-2xl space-y-4 p-6">
+        <h1 className="text-2xl font-semibold">Attempt</h1>
+        <p className="text-muted-foreground">Status: {data.status}</p>
 
-      {(data.status === "queued" || data.status === "processing") && (
-        <p>Analyzing your video — this page updates automatically.</p>
-      )}
+        {(data.status === "queued" || data.status === "processing") && (
+          <p>Analyzing your video — this page updates automatically.</p>
+        )}
 
-      {data.status === "failed" && data.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{failureMessage(data.error.code)}</AlertDescription>
-        </Alert>
-      )}
+        {data.status === "failed" && data.error && (
+          <Alert variant="destructive">
+            <AlertDescription>{failureMessage(data.error.code)}</AlertDescription>
+          </Alert>
+        )}
 
-      {data.status === "completed" && data.result && <AttemptResult result={data.result} />}
+        {data.status === "completed" && data.result && <AttemptResult result={data.result} />}
 
-      {deleteError && (
-        <Alert variant="destructive">
-          <AlertDescription>{deleteError}</AlertDescription>
-        </Alert>
-      )}
-      <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-        {isDeleting ? "Deleting..." : "Delete this attempt"}
-      </Button>
-    </div>
+        {deleteError && (
+          <Alert variant="destructive">
+            <AlertDescription>{deleteError}</AlertDescription>
+          </Alert>
+        )}
+        <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+          {isDeleting ? "Deleting..." : "Delete this attempt"}
+        </Button>
+      </div>
+    </AppShell>
   );
 }

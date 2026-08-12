@@ -40,7 +40,7 @@ export default function LoginPage() {
   return (
     <Card className="mx-auto mt-16 max-w-sm p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <h1 className="text-xl font-semibold">Log in</h1>
+        <h1 className="text-2xl font-semibold">Log in</h1>
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

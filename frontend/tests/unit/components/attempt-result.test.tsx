@@ -68,4 +68,10 @@ describe("AttemptResult", () => {
 
     expect(screen.queryByText(/knees caving in/i)).not.toBeInTheDocument();
   });
+
+  it("shows an eyebrow label above the overall score", () => {
+    render(<AttemptResult result={RESULT} />);
+
+    expect(screen.getByText(/overall score/i)).toBeInTheDocument();
+  });
 });

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
@@ -19,6 +19,7 @@ describe("AttemptHistoryList", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -77,5 +78,28 @@ describe("AttemptHistoryList", () => {
     render(<AttemptHistoryList />, { wrapper });
 
     expect(await screen.findByText(/could not load your attempt history/i)).toBeInTheDocument();
+  });
+
+  it("gives each status a distinct pill style", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          items: [
+            { attempt_id: "a1", exercise_type: "squat", status: "completed", overall_score: 82, created_at: "2026-08-04T10:00:00Z" },
+            { attempt_id: "a2", exercise_type: "squat", status: "failed", overall_score: null, created_at: "2026-08-04T09:00:00Z" },
+          ],
+          next_cursor: null,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(<AttemptHistoryList />, { wrapper });
+
+    const completedPill = await screen.findByText("completed");
+    const failedPill = screen.getByText("failed");
+
+    expect(completedPill.className).toContain("text-primary");
+    expect(failedPill.className).toContain("text-destructive");
   });
 });
