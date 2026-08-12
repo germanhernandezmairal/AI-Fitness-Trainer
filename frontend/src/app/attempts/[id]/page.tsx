@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useState } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -13,14 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AttemptDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  return (
-    <Suspense fallback={<AppShell><p className="p-6">Loading...</p></AppShell>}>
-      <AttemptDetailPageContent params={params} />
-    </Suspense>
-  );
-}
-
-function AttemptDetailPageContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   return (
     <ProtectedRoute>
@@ -29,7 +21,7 @@ function AttemptDetailPageContent({ params }: { params: Promise<{ id: string }> 
   );
 }
 
-function AttemptDetailContent({ attemptId }: { attemptId: string }) {
+export function AttemptDetailContent({ attemptId }: { attemptId: string }) {
   const { data, isLoading, error } = useAttempt(attemptId);
   const router = useRouter();
   const queryClient = useQueryClient();

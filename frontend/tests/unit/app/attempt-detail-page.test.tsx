@@ -10,7 +10,7 @@ vi.mock("@/hooks/use-attempt", () => ({
   useAttempt: () => ({ data: undefined, isLoading: true, error: null }),
 }));
 
-import AttemptDetailPage from "@/app/attempts/[id]/page";
+import { AttemptDetailContent } from "@/app/attempts/[id]/page";
 
 describe("AttemptDetailPage", () => {
   afterEach(() => {
@@ -18,7 +18,7 @@ describe("AttemptDetailPage", () => {
   });
 
   it("renders the AppShell wordmark even while the attempt is loading", () => {
-    render(<AttemptDetailPage params={Promise.resolve({ id: "a1" })} />);
+    render(<AttemptDetailContent attemptId="a1" />);
 
     expect(screen.getByText("AI Fitness Trainer")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /log out/i })).toBeInTheDocument();
