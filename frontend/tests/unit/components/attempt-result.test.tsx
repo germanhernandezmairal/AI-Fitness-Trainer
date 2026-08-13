@@ -74,4 +74,12 @@ describe("AttemptResult", () => {
 
     expect(screen.getByText(/overall score/i)).toBeInTheDocument();
   });
+
+  it("gives a rep's score the display-number treatment", () => {
+    render(<AttemptResult result={RESULT} />);
+
+    const repScore = screen.getByText(/90/);
+    expect(repScore.className).toContain("font-bold");
+    expect(repScore.className).toContain("text-primary");
+  });
 });
