@@ -42,8 +42,24 @@ export function AttemptDetailContent({ attemptId }: { attemptId: string }) {
     }
   }
 
-  if (isLoading) return <AppShell><p className="p-6">Loading...</p></AppShell>;
-  if (error || !data) return <AppShell><p className="p-6">Could not load this attempt.</p></AppShell>;
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-2xl p-6">
+          <p>Loading...</p>
+        </div>
+      </AppShell>
+    );
+  }
+  if (error || !data) {
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-2xl p-6">
+          <p>Could not load this attempt.</p>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
