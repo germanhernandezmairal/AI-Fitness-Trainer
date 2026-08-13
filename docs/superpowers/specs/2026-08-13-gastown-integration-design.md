@@ -102,3 +102,16 @@ lands.
   crew clone is functional and what pattern to use, without re-deriving it.
 - `~/gt/ai_fitness_trainer/crew/german/CLAUDE.md` (local-only) is not modified by this spec — it
   already correctly states day-to-day work happens in the Cursor clone; nothing here contradicts it.
+
+## 5. Trial outcome (2026-08-13)
+
+Executed via `docs/superpowers/plans/2026-08-13-gastown-integration-trial.md` (inline execution).
+Convoy: **`hq-cv-9wiwh`** ("Frontend design-polish: deferred findings"), tracking 5 beads, all filed
+`open`/un-closed per the file-and-forget pattern (§2) — closing them is future work tied to each
+fix actually landing on `main`, not part of this trial:
+
+1. `aft-92n` — Per-rep score rows missing display-number/type-scale treatment
+2. `aft-a64` — AppShell wraps inconsistently between home and attempt-detail pages
+3. `aft-jia` — Attempt-detail loading/error states not width-aligned with header
+4. `aft-lct` — AppShell wordmark isn't a Link back to /
+5. `aft-a22` — STATUS_PILL_CLASSES has no fallback for an unrecognized status string
