@@ -8,9 +8,11 @@ import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { AttemptSummary } from "@/lib/types";
 
+const DEFAULT_STATUS_PILL_CLASSES = "bg-muted text-muted-foreground";
+
 const STATUS_PILL_CLASSES: Record<AttemptSummary["status"], string> = {
-  queued: "bg-muted text-muted-foreground",
-  processing: "bg-muted text-muted-foreground",
+  queued: DEFAULT_STATUS_PILL_CLASSES,
+  processing: DEFAULT_STATUS_PILL_CLASSES,
   completed: "bg-primary/10 text-primary",
   failed: "bg-destructive/10 text-destructive",
 };
@@ -47,7 +49,7 @@ export function AttemptHistoryList() {
           <Card className="flex items-center justify-between p-3 transition-colors hover:bg-muted/50">
             <span className="text-sm font-medium capitalize">{attempt.exercise_type}</span>
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_PILL_CLASSES[attempt.status]}`}
+              className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_PILL_CLASSES[attempt.status] ?? DEFAULT_STATUS_PILL_CLASSES}`}
             >
               {attempt.status}
             </span>
