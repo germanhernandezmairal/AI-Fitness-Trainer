@@ -102,4 +102,34 @@ describe("AttemptHistoryList", () => {
     expect(completedPill.className).toContain("text-primary");
     expect(failedPill.className).toContain("text-destructive");
   });
+
+  it("falls back to a default pill style for an unrecognized status", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              attempt_id: "a1",
+              exercise_type: "squat",
+              // Simulates a status value the frontend doesn't yet know about
+              // (e.g. added server-side before the client types caught up).
+              status: "archived",
+              overall_score: null,
+              created_at: "2026-08-04T10:00:00Z",
+            },
+          ],
+          next_cursor: null,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(<AttemptHistoryList />, { wrapper });
+
+    const pill = await screen.findByText("archived");
+
+    expect(pill.className).not.toContain("undefined");
+    expect(pill.className).toContain("bg-muted");
+    expect(pill.className).toContain("text-muted-foreground");
+  });
 });
