@@ -26,9 +26,12 @@ export function AttemptResult({ result }: { result: AnalysisResult }) {
       <ul className="space-y-2">
         {result.reps.map((rep) => (
           <li key={rep.rep_index} className="rounded border p-2">
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between">
               <span>Rep {rep.rep_index}</span>
-              <span>{rep.score} / 100</span>
+              <span className="text-xl font-bold text-primary">
+                {rep.score}
+                <span className="text-xs font-normal text-muted-foreground"> / 100</span>
+              </span>
             </div>
             {rep.errors.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-1">
