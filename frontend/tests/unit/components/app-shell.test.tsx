@@ -24,6 +24,19 @@ describe("AppShell", () => {
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
 
+  it("links the wordmark back to /", () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "AI Fitness Trainer" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
   it("calls logout when the Log out button is clicked", async () => {
     mockLogout.mockResolvedValueOnce(undefined);
     render(
