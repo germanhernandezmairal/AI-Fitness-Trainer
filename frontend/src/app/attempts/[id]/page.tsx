@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -42,39 +42,44 @@ export function AttemptDetailContent({ attemptId }: { attemptId: string }) {
     }
   }
 
+  let content: ReactNode;
+  if (isLoading) {
+    content = <p>Loading...</p>;
+  } else if (error || !data) {
+    content = <p>Could not load this attempt.</p>;
+  } else {
+    content = (
+      <>
+        <h1 className="text-2xl font-semibold">Attempt</h1>
+        <p className="text-muted-foreground">Status: {data.status}</p>
+
+        {(data.status === "queued" || data.status === "processing") && (
+          <p>Analyzing your video — this page updates automatically.</p>
+        )}
+
+        {data.status === "failed" && data.error && (
+          <Alert variant="destructive">
+            <AlertDescription>{failureMessage(data.error.code)}</AlertDescription>
+          </Alert>
+        )}
+
+        {data.status === "completed" && data.result && <AttemptResult result={data.result} />}
+
+        {deleteError && (
+          <Alert variant="destructive">
+            <AlertDescription>{deleteError}</AlertDescription>
+          </Alert>
+        )}
+        <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+          {isDeleting ? "Deleting..." : "Delete this attempt"}
+        </Button>
+      </>
+    );
+  }
+
   return (
     <AppShell>
-      {isLoading ? (
-        <p className="p-6">Loading...</p>
-      ) : error || !data ? (
-        <p className="p-6">Could not load this attempt.</p>
-      ) : (
-        <div className="mx-auto max-w-2xl space-y-4 p-6">
-          <h1 className="text-2xl font-semibold">Attempt</h1>
-          <p className="text-muted-foreground">Status: {data.status}</p>
-
-          {(data.status === "queued" || data.status === "processing") && (
-            <p>Analyzing your video — this page updates automatically.</p>
-          )}
-
-          {data.status === "failed" && data.error && (
-            <Alert variant="destructive">
-              <AlertDescription>{failureMessage(data.error.code)}</AlertDescription>
-            </Alert>
-          )}
-
-          {data.status === "completed" && data.result && <AttemptResult result={data.result} />}
-
-          {deleteError && (
-            <Alert variant="destructive">
-              <AlertDescription>{deleteError}</AlertDescription>
-            </Alert>
-          )}
-          <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-            {isDeleting ? "Deleting..." : "Delete this attempt"}
-          </Button>
-        </div>
-      )}
+      <div className="mx-auto max-w-2xl space-y-4 p-6">{content}</div>
     </AppShell>
   );
 }
