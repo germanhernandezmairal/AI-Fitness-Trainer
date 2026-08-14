@@ -27,3 +27,74 @@ gantt
     section Datos/IA (Alejandro)
     MVP del pipeline de visión          :done, p3, 2026-07-27, 2026-08-04
 ```
+
+## Narrativa por fases
+
+### Fase 1 — Concepción y planificación (23–27 jul 2026)
+
+Arranque del proyecto: commit inicial con la concepción y el esbozo de memoria
+(`a4708bd`), seguido de la investigación de mercado y el diseño del contrato de API entre backend
+y servicio de visión artificial (`1fa5358`) — el documento que permite a ambas pistas trabajar en
+paralelo sin bloquearse mutuamente desde el primer día.
+
+### Fase 2 — API de intentos, backend (28 jul – 3 ago 2026)
+
+Implementación completa de la API de intentos siguiendo un plan TDD de 14 tareas (`72ac0ed`):
+modelos de base de datos, autenticación JWT de desarrollo, capa de almacenamiento, validación de
+subidas, firma HMAC de webhooks, cliente del servicio de visión, endpoints de creación/consulta/
+historial, recepción idempotente del webhook de resultado, reconciliador de sondeo y purga por
+retención, además de un servicio de visión simulado (`fake-cv-service`) con un test end-to-end.
+
+### Fase 3 — MVP del pipeline de visión, Alejandro (27 jul – 4 ago 2026)
+
+En paralelo, Alejandro desarrolla el MVP del pipeline de visión en la rama independiente
+`cv-pipeline`: detección de pose, cálculo de ángulos articulares por repetición y lógica de
+puntuación, expuestos como un servicio FastAPI real (`cv-service`). Injertado en `main` el 4 de
+agosto (`3c6702f`), resolviendo los 4 huecos de compatibilidad identificados contra el contrato de
+la Fase 1 (prefijo `/v1`, borrado GDPR, autenticación por clave, límites de subida confirmados).
+
+### Fase 4 — Autenticación real (4 ago 2026)
+
+Sustitución del login de desarrollo por autenticación real: registro, login, refresco y cierre de
+sesión, con tokens de refresco opacos y hasheados en base de datos y revocación en bloque ante
+detección de reuso (`069b83e`).
+
+### Fase 5 — Frontend v1 (4–7 ago 2026)
+
+Construcción completa de la aplicación web (Next.js): flujo de subida de video, sondeo de estado,
+visualización de resultado con video anotado, historial de intentos, y páginas de login/registro,
+con test end-to-end de Playwright cubriendo el ciclo completo. Fusionado a `main` mediante el PR
+#2 (`d511efd`) tras una revisión final que encontró y corrigió 9 hallazgos, incluyendo uno crítico
+(la ruta de registro no era alcanzable desde ningún enlace de la interfaz).
+
+### Fase 6 — Consolidación de contrato y memoria Cap. 4 (7–11 ago 2026)
+
+Cierre de huecos de integración entre pistas: documentación del flujo local completo con frontend,
+corrección de un bug real de códec de video (`eeae94a` — el video anotado usaba MPEG-4 Part 2,
+no reproducible en navegadores) encontrado al probar por primera vez el pipeline real (no el
+simulado) desde la interfaz. En paralelo, redacción y fusión del capítulo 4 de esta memoria
+(Requisitos) (`fab09b1`).
+
+### Fase 7 — Pulido de diseño del frontend (12 ago 2026)
+
+Primera pasada de diseño visual dedicada sobre el frontend, hasta entonces funcional pero con el
+aspecto por defecto de shadcn/ui: nueva paleta de color, cabecera compartida `AppShell`, escala
+tipográfica consistente, y rediseño de las tarjetas de resultado e historial (`39b9e51`).
+
+### Fase 8 — Seguimiento del pulido de frontend (13–14 ago 2026)
+
+Cierre de los 5 hallazgos menores diferidos de la revisión final de la Fase 7. Este seguimiento
+tuvo un episodio no planeado: automatización de Gas Town (herramienta de orquestación de agentes
+en prueba desde el 13 de agosto para el seguimiento de tareas) ejecutó de forma autónoma parte de
+este mismo trabajo sin supervisión, requiriendo una reconciliación manual del código antes de
+completarse (`667c47d`) — documentado como una lección operativa, no como parte del plan original.
+
+## Dependencia entre pistas: el trabajo pendiente de Alejandro
+
+La pista de Datos/IA es densa entre el 27 de julio y el 4 de agosto (MVP entregado y verificado
+end-to-end), pero queda inactiva a partir de esa fecha. El 7 y de nuevo el 11 de agosto se envió a
+Alejandro una solicitud para implementar detección de errores de forma (`knee_valgus`,
+`insufficient_depth`, `excessive_forward_lean`), aún sin respuesta a 14 de agosto de 2026. Esto
+representa una dependencia real entre pistas: una categoría completa de requisitos (ver capítulo 4)
+no tiene fecha de entrega comprometida hasta que esa respuesta llegue, y se documenta aquí como tal
+en lugar de presentar ambas pistas como si hubieran avanzado de forma continua y simétrica.
