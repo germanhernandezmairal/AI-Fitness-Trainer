@@ -27,7 +27,9 @@ export function AttemptResult({ result }: { result: AnalysisResult }) {
         {result.reps.map((rep) => (
           <li key={rep.rep_index} className="rounded border p-2">
             <div className="flex items-center justify-between">
-              <span>Rep {rep.rep_index}</span>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Rep {rep.rep_index}
+              </span>
               <span className="text-xl font-bold text-primary">
                 {rep.score}
                 <span className="text-xs font-normal text-muted-foreground"> / 100</span>

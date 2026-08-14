@@ -75,8 +75,13 @@ describe("AttemptResult", () => {
     expect(screen.getByText(/overall score/i)).toBeInTheDocument();
   });
 
-  it("gives a rep's score the display-number treatment", () => {
+  it("gives per-rep scores the same eyebrow/display type-scale as the overall score", () => {
     render(<AttemptResult result={RESULT} />);
+
+    const repLabel = screen.getByText(/rep 1/i);
+    expect(repLabel.className).toContain("text-[11px]");
+    expect(repLabel.className).toContain("uppercase");
+    expect(repLabel.className).toContain("tracking-wide");
 
     const repScore = screen.getByText(/90/);
     expect(repScore.className).toContain("font-bold");
