@@ -27,4 +27,3 @@ gantt
     section Datos/IA (Alejandro)
     MVP del pipeline de visión          :done, p3, 2026-07-27, 2026-08-04
 ```
-```
