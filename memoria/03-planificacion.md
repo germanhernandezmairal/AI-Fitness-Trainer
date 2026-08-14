@@ -1,8 +1,10 @@
 # 3. Planificación
 
-> Fuente: `docs/superpowers/specs/2026-08-14-memoria-cap3-planificacion-design.md` (diseño
-> aprobado). Fechas y fases derivadas directamente del historial de `git log` sobre `main` y
-> `origin/cv-pipeline`, no estimadas.
+<!--
+Fuente: docs/superpowers/specs/2026-08-14-memoria-cap3-planificacion-design.md (diseño
+aprobado). Fechas y fases derivadas directamente del historial de git log sobre main y
+origin/cv-pipeline, no estimadas.
+-->
 
 Este proyecto se ha desarrollado en dos pistas paralelas que convergen en el contrato de API
 backend↔servicio de visión artificial: la pista **Fullstack** (aplicación web, backend, base de
@@ -63,9 +65,9 @@ detección de reuso (`069b83e`).
 
 Construcción completa de la aplicación web (Next.js): flujo de subida de video, sondeo de estado,
 visualización de resultado con video anotado, historial de intentos, y páginas de login/registro,
-con test end-to-end de Playwright cubriendo el ciclo completo. Fusionado a `main` mediante el PR
-#2 (`d511efd`) tras una revisión final que encontró y corrigió 9 hallazgos, incluyendo uno crítico
-(la ruta de registro no era alcanzable desde ningún enlace de la interfaz).
+con test end-to-end de Playwright cubriendo el ciclo completo. Fusionado a `main` mediante el
+PR n.º 2 (`d511efd`) tras una revisión final que encontró y corrigió 9 hallazgos, incluyendo uno
+crítico (la ruta de registro no era alcanzable desde ningún enlace de la interfaz).
 
 ### Fase 6 — Consolidación de contrato y memoria Cap. 4 (7–11 ago 2026)
 
@@ -91,10 +93,17 @@ completarse (`667c47d`) — documentado como una lección operativa, no como par
 
 ## Dependencia entre pistas: el trabajo pendiente de Alejandro
 
-La pista de Datos/IA es densa entre el 27 de julio y el 4 de agosto (MVP entregado y verificado
-end-to-end), pero queda inactiva a partir de esa fecha. El 7 y de nuevo el 11 de agosto se envió a
-Alejandro una solicitud para implementar detección de errores de forma (`knee_valgus`,
-`insufficient_depth`, `excessive_forward_lean`), aún sin respuesta a 14 de agosto de 2026. Esto
-representa una dependencia real entre pistas: una categoría completa de requisitos (ver capítulo 4)
-no tiene fecha de entrega comprometida hasta que esa respuesta llegue, y se documenta aquí como tal
-en lugar de presentar ambas pistas como si hubieran avanzado de forma continua y simétrica.
+La pista de Datos/IA está concentrada en dos ráfagas (27–28 de julio y 4 de agosto; MVP entregado y
+verificado end-to-end), pero queda inactiva a partir de esa fecha. El diseño de la solicitud a
+Alejandro para implementar detección de errores de forma (`knee_valgus`, `insufficient_depth`,
+`excessive_forward_lean`) se redactó el 7 de agosto (`f8105fa`) y el mensaje se redactó el 11 de
+agosto (`c4ad6f9`). Alejandro respondió ese mismo 11 de agosto, pero solo para pedir poder ejecutar
+el frontend en local contra su `cv-service` en desarrollo y así probar la detección de errores de
+forma a medida que la construye — no para responder a las preguntas de diseño planteadas en el
+mensaje. Esa petición de acceso se resolvió con una corrección del README de backend (`f7ad6b2`,
+"add frontend step to the local dev loop"). A 14 de agosto de 2026, las preguntas de diseño
+sustantivas (si y cómo detectar cada error de forma, y cómo calibrar la curva de puntuación) siguen
+sin respuesta. Esto representa una dependencia real entre pistas: una categoría completa de
+requisitos (ver capítulo 4) no tiene fecha de entrega comprometida hasta que esa respuesta llegue, y
+se documenta aquí como tal en lugar de presentar ambas pistas como si hubieran avanzado de forma
+continua y simétrica.
