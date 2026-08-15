@@ -147,21 +147,38 @@ mezclan ambas cosas en una sola afirmación.
 - **Real:** el análisis es asíncrono (subida → cv-service → webhook → actualización de estado),
   con un reconciliador de respaldo que consulta el estado directamente a cv-service si el webhook
   no llega dentro de un plazo configurado
-  (`backend/app/services/jobs.py::reconcile_stale_attempts`, usa `settings.cv_poll_after_sec`);
-  no existe una medición formal de tiempo end-to-end ni un SLA declarado.
-- **Objetivo:** definir un tiempo máximo razonable (p. ej. análisis completo en menos de N
-  segundos para un video de 60s), a confirmar con datos reales de Alejandro sobre tiempos de
-  inferencia de cv-service.
+  (`backend/app/services/jobs.py::reconcile_stale_attempts`, usa `settings.cv_poll_after_sec`).
+  Medido el 15 de agosto de 2026 con `cv-service/scripts/benchmark_latencia.py` (subida real por
+  HTTP, polling hasta `completed`), sobre `backend/tests/fixtures/squat.mp4` (único video de
+  referencia del repo, ~13s), en la máquina de desarrollo (16 núcleos físicos / 22 lógicos): 3
+  tandas secuenciales dieron una latencia media de 12.4s (mín. 12.3s, máx. 12.4s) — una relación
+  de ~0.95x la duración del video, dominada por el procesamiento frame a frame de MediaPipe, no
+  por la subida del archivo en sí.
+- **Objetivo:** extrapolando esa relación linealmente a un video de 60s (el máximo del contrato):
+  ~57s de procesamiento puro. Se propone un SLA de **menos de 90s** para un video de 60s, dejando
+  margen sobre la extrapolación porque la medición es de esta máquina de desarrollo, no del
+  destino de despliegue real (`docs/superpowers/specs/2026-08-14-free-tier-deployment-design.md`:
+  una VM Oracle Cloud Always-Free de 2 OCPUs ARM, compartida con backend y Postgres) — a
+  re-medir con `benchmark_latencia.py` una vez desplegado ahí, ya que una VM mucho más modesta y
+  compartida probablemente no sostenga la misma relación de ~1x.
 
 ### RNF-3: Capacidad concurrente
 
-- **Real:** sin pruebas de carga realizadas; el análisis se lanza como `BackgroundTask` de
-  FastAPI dentro del propio proceso de cv-service (`cv-service/main.py`), sin cola de trabajos ni
-  workers dedicados, y el estado de los jobs vive en un diccionario en memoria
-  (`cv-service/jobs.py::JOBS`), por lo que no hay control explícito del número de análisis en
-  paralelo.
-- **Objetivo:** declarar el número de análisis simultáneos soportado, pendiente de definir tras
-  pruebas de carga.
+- **Real:** el análisis se lanza como `BackgroundTask` de FastAPI dentro del propio proceso de
+  cv-service (`cv-service/main.py`), sin cola de trabajos ni workers dedicados, y el estado de
+  los jobs vive en un diccionario en memoria (`cv-service/jobs.py::JOBS`) — sin límite explícito
+  de análisis en paralelo. Medido el 15 de agosto de 2026 con `benchmark_latencia.py` (mismo
+  video, niveles de concurrencia 1/2/3/4, 3 tandas cada uno) en la máquina de desarrollo: la
+  latencia por job se mantuvo prácticamente plana hasta concurrencia=4 (1.00x-1.06x contra la
+  línea base de concurrencia=1, máx. 14.9s en una tanda) — MediaPipe/OpenCV liberan el GIL lo
+  suficiente durante el cómputo pesado como para que los hilos del `BackgroundTask` corran en
+  paralelo de verdad, no en serie.
+- **Objetivo:** este resultado no es trasladable tal cual al destino de despliegue: 16 núcleos
+  de la máquina de desarrollo vs. 2 OCPUs compartidos con backend y Postgres en la VM Oracle
+  Always-Free planeada. Con esa referencia (2 OCPUs), se propone **2 análisis simultáneos** como
+  objetivo conservador de partida, no como límite medido — pendiente de confirmar re-corriendo
+  `benchmark_latencia.py` contra la VM real (o un contenedor con `docker run --cpus 2`, que no se
+  probó en esta ronda por no tener Docker Desktop activo en la máquina de desarrollo).
 
 ### RNF-4: Precisión del modelo
 
