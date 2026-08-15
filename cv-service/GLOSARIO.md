@@ -21,15 +21,55 @@ archivo. Se amplía a medida que se añade cada script del plan
 | Nombre | Qué es |
 |---|---|
 | `STANDING_THRESHOLD` (160°) | Ángulo de rodilla a partir del cual consideramos que la persona está "de pie". Por debajo de ese ángulo, está en movimiento de sentadilla. |
-| `GOOD_DEPTH_MIN` / `GOOD_DEPTH_MAX` (70°-100°) | El rango de ángulo mínimo que consideramos "buena profundidad" en la parte baja de la sentadilla. |
-| `PENALTY_PER_DEGREE` | Cuántos puntos de `score` se restan por cada grado que el ángulo mínimo de una rep se aleja del rango bueno. |
+| `GOOD_DEPTH_ANGLE_DEG` (100°) | Ángulo de rodilla (cadera-rodilla-tobillo) a partir del cual una rep cuenta como "buena profundidad". Por debajo o igual (más flexión, más profunda), la rep no se penaliza ni se marca `insufficient_depth`; por encima (menos flexión, no llegó a agacharse lo suficiente), sí. Antes existían dos límites (`GOOD_DEPTH_MIN`/`GOOD_DEPTH_MAX` = 70°-100°) que penalizaban tanto quedarse corto como pasarse de profundo — ver "Fuentes" abajo para por qué se cambió a un único umbral. |
+| `EXCESSIVE_LEAN_DEG` (45°) | Umbral de `torso_lean_from_vertical` a partir del cual se marca `excessive_forward_lean`. A diferencia de `GOOD_DEPTH_ANGLE_DEG`, es un punto de partida heurístico (no viene de la búsqueda bibliográfica de abajo) — a ajustar contra videos reales. |
+| `PENALTY_PER_DEGREE` | Cuántos puntos de `score` se restan por cada grado que el ángulo mínimo de una rep supera `GOOD_DEPTH_ANGLE_DEG`. |
 | `NoPoseDetectedError` | Un tipo de error a medida (no lleva lógica propia, solo un nombre) que se lanza cuando MediaPipe no detecta a ninguna persona en todo el video. Sirve para que `jobs.py` distinga este caso ("el usuario debe regrabar") de un fallo inesperado del sistema — ver conversación sobre por qué no es un error genérico. |
-| `calculate_angle(a, b, c)` | Calcula el ángulo (en grados) entre tres puntos, con vértice en `b`. Se usa con (cadera, rodilla, tobillo) para obtener el ángulo de la rodilla en cada frame. |
-| `score_from_angle(min_angle)` | Convierte el ángulo mínimo alcanzado en una repetición en una puntuación de 0 a 100. |
-| `build_rep(...)` | Empaqueta los datos de una repetición (índice, tiempos de inicio/fin, ángulo mínimo, score) en el diccionario con la forma exacta que espera el contrato de API. |
-| `segment_reps(detections, fps)` | La "máquina de estados": recorre la lista de ángulos frame a frame y decide dónde empieza y termina cada repetición (de pie → bajando → de pie de nuevo). `detections` es una lista de pares `(número_de_frame, ángulo)`, uno solo por cada frame donde sí se detectó a la persona. |
+| `calculate_angle(a, b, c)` | Calcula el ángulo (en grados) entre tres puntos, con vértice en `b`. Se usa con (cadera, rodilla, tobillo) para obtener el ángulo de la rodilla en cada frame, y con (cadera, hombro) más un eje vertical dentro de `torso_lean_from_vertical`. |
+| `torso_lean_from_vertical(hip, shoulder)` | Ángulo entre el vector cadera→hombro y la vertical de la imagen. 0° = torso erguido. Se evalúa en el frame donde ocurre el ángulo mínimo de rodilla de cada rep (el punto más bajo del squat), no en cualquier frame. |
+| `score_from_angle(min_angle)` | Convierte el ángulo mínimo alcanzado en una repetición en una puntuación de 0 a 100, según `GOOD_DEPTH_ANGLE_DEG`. |
+| `build_rep(...)` | Empaqueta los datos de una repetición (índice, tiempos de inicio/fin, ángulo mínimo, score, `errors`) en el diccionario con la forma exacta que espera el contrato de API. Recibe opcionalmente `hip`/`shoulder` del frame de ángulo mínimo para evaluar `excessive_forward_lean`. |
+| `segment_reps(detections, fps)` | La "máquina de estados": recorre la lista de ángulos frame a frame y decide dónde empieza y termina cada repetición (de pie → bajando → de pie de nuevo), y recuerda `hip`/`shoulder` del frame de ángulo mínimo de cada rep para pasárselo a `build_rep`. `detections` es una lista de `(número_de_frame, ángulo, hip, shoulder)`, una por cada frame donde sí se detectó a la persona. |
 | `fps` (frames por segundo) | Cuántos frames tiene el video por cada segundo real. Se usa para convertir "número de frame" en "segundos", y así calcular `start_time_sec`/`end_time_sec` de cada rep. |
 | `state` | La variable que recuerda en qué parte del movimiento estamos mientras se recorren los frames: `"standing"` (de pie, esperando que empiece una rep) o cualquier otro valor (dentro de una rep, bajando/subiendo). |
+
+### `rep.errors` — de dónde sale cada código, y de dónde no
+
+Contrato original (catálogo cerrado, sin lógica): `docs/2026-07-27-cv-gym-exercise-design.md` §7.
+Diseño de esta detección: `docs/superpowers/specs/2026-08-07-cv-form-error-detection-request-design.md`
+y el mensaje asociado en `docs/2026-08-11-alejandro-cv-form-error-detection-message.md`.
+
+- **`insufficient_depth`** y **la curva de `score_from_angle`** están basadas en:
+  - Schoenfeld, B. J. (2010). *Squatting Kinematics and Kinetics and Their Application to
+    Exercise Performance*. Journal of Strength and Conditioning Research, 24(12), 3497-3506 —
+    clasifica la profundidad de sentadilla por flexión de rodilla (cuarto ~40-50°, paralela
+    ~90°, completa 110-130°+) y es la referencia más citada en biomecánica de sentadilla.
+  - NSCA, *Considerations for Squat Depth* (nsca.com/education/articles/nsca-coach/considerations-for-squat-depth) —
+    posición de la NSCA de que la evidencia científica no sostiene que la sentadilla completa
+    exponga la rodilla a fuerzas de compresión dañinas, en contra del mito de que "más profundo
+    es más riesgoso".
+  - Escamilla, R. F., *Knee Biomechanics of the Dynamic Squat Exercise* — documenta que las
+    fuerzas de compresión patelofemoral y tibiofemoral aumentan progresivamente con la flexión
+    de rodilla, pero no que eso implique daño en sentadillas bien ejecutadas.
+
+  Con esa base: `score_from_angle` dejó de penalizar pasarse de profundidad (antes penalizaba
+  simétricamente, lo que hacía puntuar 7-22/100 un squat real, limpio y de 39-44° — ver
+  verificación end-to-end del 2026-08-04 en `docs/superpowers/specs/2026-08-07-cv-form-error-detection-request-design.md`
+  §0). `insufficient_depth` y el score comparten ahora un único umbral (`GOOD_DEPTH_ANGLE_DEG`),
+  en vez de los dos límites (`GOOD_DEPTH_MIN`/`GOOD_DEPTH_MAX`) que tenía antes.
+
+- **`excessive_forward_lean`** — el umbral (`EXCESSIVE_LEAN_DEG` = 45°) es un punto de partida
+  propuesto en el mensaje a Alejandro, sin respaldo bibliográfico específico — a validar contra
+  videos de referencia reales, no una cifra de la literatura.
+
+- **`knee_valgus`** — **no implementado en esta ronda**, a propósito, no por omisión.
+  `pipeline.py` asume una sola cámara lateral (usa solo landmarks del lado derecho:
+  `RIGHT_HIP`, `RIGHT_KNEE`, `RIGHT_ANKLE`, `RIGHT_SHOULDER`), y el valgo de rodilla es un
+  defecto que se observa en el plano frontal (de frente), no en el sagital (de lado). Detectarlo
+  con una sola cámara lateral requeriría el eje Z de MediaPipe, conocido por ser ruidoso con una
+  sola cámara — se decidió (con Germán, 2026-08-07) dejarlo documentado como limitación conocida
+  en vez de forzar una señal de baja confianza esta ronda. Sigue devolviendo `errors: []` en la
+  práctica para este código: nunca se añade, no hay lógica que lo evalúe.
 
 ## `jobs.py`
 

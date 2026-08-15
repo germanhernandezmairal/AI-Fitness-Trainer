@@ -93,6 +93,8 @@ completo del otro para `CV_SERVICE_URL`, no un complemento.
 ## Fuera de alcance en este MVP
 
 Ver la sección "Fuera de alcance" de
-`docs/superpowers/specs/2026-08-04-cv-service-mvp-design.md`: sin detección de `knee_valgus` /
-`insufficient_depth` / `excessive_forward_lean` todavía, sin cola de tareas ni S3, sin soporte
-HEVC confirmado, sin purga automática por retención.
+`docs/superpowers/specs/2026-08-04-cv-service-mvp-design.md`. `insufficient_depth` y
+`excessive_forward_lean` ya se detectan (ver `GLOSARIO.md` para las fuentes de los umbrales);
+`knee_valgus` sigue sin implementarse a propósito (cámara lateral, defecto de plano frontal —
+detalle en `GLOSARIO.md`). Tampoco hay cola de tareas ni S3, soporte HEVC confirmado, ni purga
+automática por retención.

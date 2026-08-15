@@ -17,9 +17,23 @@ mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
 STANDING_THRESHOLD = 160.0  # ángulo de rodilla a partir del cual se considera "de pie"
-GOOD_DEPTH_MIN = 70.0  # rango de profundidad considerado buena sentadilla
-GOOD_DEPTH_MAX = 100.0
-PENALTY_PER_DEGREE = 3  # puntos que se restan del score por cada grado fuera del rango bueno
+
+# Ángulo de rodilla (cadera-rodilla-tobillo) a partir del cual una rep cuenta como "buena
+# profundidad". Aproxima la sentadilla paralela (~90° de flexión de rodilla en la convención
+# de la literatura, que mide desde la extensión completa -- el ángulo que calculamos aquí es
+# el complementario, así que ~90° de flexión ≈ 90-100° de ángulo interior). Por debajo o igual
+# a este valor, la rep no se penaliza por profundidad ni se marca `insufficient_depth`: la NSCA
+# no encuentra base para tratar la sentadilla completa (mayor flexión) como más riesgosa para
+# la rodilla que la paralela, así que solo se penaliza quedarse corto, nunca pasarse. Fuentes y
+# discusión completa en GLOSARIO.md.
+GOOD_DEPTH_ANGLE_DEG = 100.0
+PENALTY_PER_DEGREE = 3  # puntos que se restan del score por cada grado por encima del umbral
+
+# Umbral de inclinación de torso (`torso_lean_from_vertical`) a partir del cual se marca
+# `excessive_forward_lean`. A diferencia de GOOD_DEPTH_ANGLE_DEG, este valor es un punto de
+# partida heurístico, no derivado de una fuente concreta -- a ajustar contra videos reales
+# (ver GLOSARIO.md).
+EXCESSIVE_LEAN_DEG = 45.0
 
 # 'mp4v' (MPEG-4 Part 2) es lo que probaría cualquiera primero, pero los navegadores no lo
 # decodifican en <video> -- solo H.264/AVC, VP8/VP9 o AV1. 'avc1' sí produce H.264 real con este
@@ -51,60 +65,101 @@ def calculate_angle(a, b, c) -> float:
     return float(np.degrees(np.arccos(cosine_angle)))
 
 
-def score_from_angle(min_angle: float) -> int:
-    """Puntúa una repetición según lo cerca que quedó su ángulo mínimo del rango bueno.
+def torso_lean_from_vertical(hip, shoulder) -> float:
+    """Ángulo entre el vector cadera->hombro y la vertical, en grados.
 
-    100 si el ángulo mínimo cae dentro de [GOOD_DEPTH_MIN, GOOD_DEPTH_MAX];
-    fuera de ese rango, penaliza PENALTY_PER_DEGREE puntos por cada grado de
-    distancia al límite más cercano, sin bajar de 0.
+    0° = torso perfectamente vertical. Usado para `excessive_forward_lean`
+    (ver fuentes de umbral en GLOSARIO.md).
     """
-    if GOOD_DEPTH_MIN <= min_angle <= GOOD_DEPTH_MAX:
+    vertical = np.array([0, -1])  # "arriba" en coordenadas de imagen (y decrece hacia arriba)
+    v = np.array(shoulder) - np.array(hip)
+    cosine = np.dot(v, vertical) / (np.linalg.norm(v) + 1e-6)
+    return float(np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0))))
+
+
+def score_from_angle(min_angle: float) -> int:
+    """Puntúa una repetición según qué tan lejos quedó su ángulo mínimo de GOOD_DEPTH_ANGLE_DEG.
+
+    100 si el ángulo mínimo llegó a GOOD_DEPTH_ANGLE_DEG o más profundo (ángulo menor);
+    por encima, penaliza PENALTY_PER_DEGREE puntos por cada grado de distancia, sin
+    bajar de 0. No hay penalización por pasarse de profundo (ver GOOD_DEPTH_ANGLE_DEG).
+    """
+    if min_angle <= GOOD_DEPTH_ANGLE_DEG:
         return 100
 
-    if min_angle < GOOD_DEPTH_MIN:
-        distance = GOOD_DEPTH_MIN - min_angle
-    else:
-        distance = min_angle - GOOD_DEPTH_MAX
-
+    distance = min_angle - GOOD_DEPTH_ANGLE_DEG
     return max(0, round(100 - distance * PENALTY_PER_DEGREE))
 
 
-def build_rep(rep_index: int, start_frame: int, end_frame: int, fps: float, min_angle: float) -> dict:
-    """Construye el diccionario de una repetición con la forma que espera el contrato."""
+def build_rep(
+    rep_index: int,
+    start_frame: int,
+    end_frame: int,
+    fps: float,
+    min_angle: float,
+    hip=None,
+    shoulder=None,
+) -> dict:
+    """Construye el diccionario de una repetición con la forma que espera el contrato.
+
+    `hip`/`shoulder` son las coordenadas de esos landmarks en el frame donde ocurrió
+    `min_angle` (ver `segment_reps`); si no se pasan, no se evalúa `excessive_forward_lean`.
+    `knee_valgus` no se evalúa: requiere una cámara frontal, y `pipeline.py` asume una
+    sola cámara lateral. Queda documentado como limitación conocida (ver GLOSARIO.md),
+    no como código pendiente.
+    """
+    errors = []
+    if min_angle > GOOD_DEPTH_ANGLE_DEG:
+        errors.append("insufficient_depth")
+    if hip is not None and shoulder is not None:
+        if torso_lean_from_vertical(hip, shoulder) > EXCESSIVE_LEAN_DEG:
+            errors.append("excessive_forward_lean")
+
     return {
         "rep_index": rep_index,
         "start_time_sec": round(start_frame / fps, 2),
         "end_time_sec": round(end_frame / fps, 2),
         "min_knee_angle_deg": round(min_angle, 1),
         "score": score_from_angle(min_angle),
-        "errors": [],
+        "errors": errors,
     }
 
 
-def segment_reps(detections: list[tuple[int, float]], fps: float) -> list[dict]:
+def segment_reps(detections: list[tuple[int, float, list, list]], fps: float) -> list[dict]:
     """Agrupa una secuencia de ángulos de rodilla en repeticiones completas.
 
-    `detections` es una lista de (número_de_frame, ángulo), solo para los
-    frames donde sí se detectó a la persona. Usa una máquina de estados
-    simple: de pie -> bajando/abajo/subiendo -> de pie de nuevo cierra una
-    repetición. Una repetición que empieza pero nunca vuelve a "de pie"
-    (video cortado a mitad de rep) no se cuenta.
+    `detections` es una lista de (número_de_frame, ángulo, hip, shoulder), solo
+    para los frames donde sí se detectó a la persona. `hip`/`shoulder` son las
+    coordenadas de esos landmarks en ese frame -- se necesitan para evaluar
+    `excessive_forward_lean` en el frame exacto del ángulo mínimo de cada rep,
+    no en cualquier otro. Usa una máquina de estados simple: de pie ->
+    bajando/abajo/subiendo -> de pie de nuevo cierra una repetición. Una
+    repetición que empieza pero nunca vuelve a "de pie" (video cortado a
+    mitad de rep) no se cuenta.
     """
     state = "standing"
     rep_start_frame = None
     min_angle_in_rep = None
+    min_angle_hip = None
+    min_angle_shoulder = None
     reps = []
 
-    for frame_index, angle in detections:
+    for frame_index, angle, hip, shoulder in detections:
         if state == "standing" and angle < STANDING_THRESHOLD:
             state = "descending"
             rep_start_frame = frame_index
             min_angle_in_rep = angle
+            min_angle_hip, min_angle_shoulder = hip, shoulder
         elif state != "standing":
-            min_angle_in_rep = min(min_angle_in_rep, angle)
+            if angle < min_angle_in_rep:
+                min_angle_in_rep = angle
+                min_angle_hip, min_angle_shoulder = hip, shoulder
             if angle >= STANDING_THRESHOLD:
                 reps.append(
-                    build_rep(len(reps) + 1, rep_start_frame, frame_index, fps, min_angle_in_rep)
+                    build_rep(
+                        len(reps) + 1, rep_start_frame, frame_index, fps, min_angle_in_rep,
+                        hip=min_angle_hip, shoulder=min_angle_shoulder,
+                    )
                 )
                 state = "standing"
 
@@ -153,7 +208,7 @@ def analizar_video(input_path: Path, output_path: Path) -> dict:
 
     pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-    detections: list[tuple[int, float]] = []
+    detections: list[tuple[int, float, list, list]] = []
     frame_index = 0
 
     try:
@@ -179,8 +234,12 @@ def analizar_video(input_path: Path, output_path: Path) -> dict:
                     landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].x * width,
                     landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value].y * height,
                 ]
+                shoulder = [
+                    landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x * width,
+                    landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y * height,
+                ]
                 angle = calculate_angle(hip, knee, ankle)
-                detections.append((frame_index, angle))
+                detections.append((frame_index, angle, hip, shoulder))
 
                 mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
                 cv2.putText(
@@ -208,5 +267,5 @@ def analizar_video(input_path: Path, output_path: Path) -> dict:
         "summary": f"{len(reps)} repetición(es) detectada(s).",
         "rep_count": len(reps),
         "reps": reps,
-        "algorithm_version": "squat-rules-v0",
+        "algorithm_version": "squat-rules-v1",
     }
