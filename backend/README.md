@@ -104,3 +104,6 @@ Two APScheduler jobs run inside the app process:
 - Rate limiting on `/v1/auth/login` and `/v1/auth/refresh`.
 - Email verification / password reset — no email-sending infrastructure exists yet.
 - S3/MinIO storage — `LocalFilesystemStorage` is the only `Storage` implementation.
+
+**Deployment:** see `deploy/README.md` for the free-tier deployment runbook (Vercel + Oracle
+Always-Free VM).
