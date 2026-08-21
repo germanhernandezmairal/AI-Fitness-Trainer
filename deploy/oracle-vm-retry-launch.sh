@@ -64,7 +64,7 @@ print('Lifecycle state:', d['lifecycle-state'])
   # Out-of-capacity, rate-limit, and plain network/connection errors are expected/transient
   # -- keep retrying. Anything else (bad OCID, auth failure, quota, etc.) is a real problem
   # -- stop and show it.
-  if echo "$out" | grep -qiE "Out of capacity|TooManyRequests|Too many requests|RequestException|connection.*timed out|Connection aborted|ConnectionError"; then
+  if echo "$out" | grep -qiE "capacity|TooManyRequests|Too many requests|RequestException|connection.*timed out|Connection aborted|ConnectionError"; then
     echo "  (expected transient failure -- retrying in ${RETRY_INTERVAL}s)"
   else
     echo
