@@ -16,6 +16,7 @@ Private & Public SSH Keys/
 
 # --- Deploy script output (local, instance-specific, regenerated each run) ---
 deploy/oracle-vm-launch-result.json
+deploy/oracle-vm-retry.log
 
 # --- Node / web app ---
 node_modules/
