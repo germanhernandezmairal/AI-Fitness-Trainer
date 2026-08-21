@@ -4,6 +4,19 @@
 !.env.example
 !.env.local.example
 
+# --- SSH / API keys (e.g. accidental browser downloads landing in the repo) ---
+*.pem
+*.key
+*.ppk
+id_rsa*
+id_ed25519*
+oci_api_key*
+ssh-key-*.key*
+Private & Public SSH Keys/
+
+# --- Deploy script output (local, instance-specific, regenerated each run) ---
+deploy/oracle-vm-launch-result.json
+
 # --- Node / web app ---
 node_modules/
 dist/
