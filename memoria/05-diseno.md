@@ -47,3 +47,33 @@ terminar un análisis va firmado con HMAC-SHA256 sobre `timestamp + "." + body`
 (`backend/app/security/signing.py`), con la firma y el timestamp en las cabeceras
 `X-CV-Signature`/`X-CV-Timestamp`. El backend rechaza cualquier webhook cuya firma no coincida,
 evitando que un tercero pueda falsificar el resultado de un análisis.
+
+## Diagramas de uso
+
+Diagrama de casos de uso derivado directamente de los 7 casos de uso funcionales del Capítulo 4
+(`memoria/04-requisitos.md`) — Mermaid no tiene una notación UML de casos de uso nativa, por lo que
+se usa un `flowchart` con el actor conectado a cada caso de uso, la alternativa habitual.
+
+```mermaid
+flowchart LR
+    Usuario(["Usuario"])
+    CU1(["CU-1: Registrarse"])
+    CU2(["CU-2: Iniciar sesión"])
+    CU3(["CU-3: Cerrar sesión"])
+    CU4(["CU-4: Subir video de un intento"])
+    CU5(["CU-5: Consultar resultado de un intento"])
+    CU6(["CU-6: Ver historial de intentos"])
+    CU7(["CU-7: Eliminar un intento (derecho al olvido / GDPR)"])
+
+    Usuario --- CU1
+    Usuario --- CU2
+    Usuario --- CU3
+    Usuario --- CU4
+    Usuario --- CU5
+    Usuario --- CU6
+    Usuario --- CU7
+```
+
+No existe ningún actor adicional (no hay rol de administrador en el sistema real) ni ningún caso de
+uso fuera de estos 7 — este diagrama visualiza los requisitos del Capítulo 4, no añade alcance
+nuevo.
