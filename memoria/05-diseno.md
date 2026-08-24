@@ -127,3 +127,50 @@ define el contrato de respuesta de cv-service — no como filas o clases propias
 un campo de texto plano, no una entidad `Exercise` normalizada, ya que hoy solo existe un ejercicio
 soportado (sentadilla). Esta es una simplificación deliberada del sistema real, no una omisión de
 este diagrama.
+
+## Diseño de interfaz
+
+A diferencia del resto de este capítulo, esta sección no usa wireframes sino **capturas reales de
+las pantallas ya implementadas**, obtenidas ejecutando la aplicación en local (el backend de
+producción todavía no existe — VM de Oracle pendiente, ver
+`docs/superpowers/specs/2026-08-14-free-tier-deployment-design.md`).
+
+### Inicio de sesión (CU-2)
+
+![Pantalla de inicio de sesión](figuras/05-01-login.png)
+
+Formulario de email y contraseña. Un fallo de autenticación se comunica como "Invalid email or
+password" — un mensaje deliberadamente distinguible de un error de red o de servidor (ver
+`frontend/src/lib/auth-context.tsx`).
+
+### Registro (CU-1)
+
+![Pantalla de registro](figuras/05-02-registro.png)
+
+Formulario de alta de cuenta. Al completarse, el backend crea la cuenta y devuelve de inmediato un
+par de tokens (access + refresh) — el usuario queda autenticado sin pasar por login.
+
+### Subida de video (CU-4)
+
+![Pantalla de subida de video](figuras/05-03-subida.png)
+
+Formulario de subida en la página de inicio autenticada. Valida extensión (`.mp4`/`.mov`), tamaño
+(≤100MB) y duración (≤60s) antes de enviar el video al backend.
+
+### Resultado de un intento (CU-5)
+
+![Pantalla de resultado de un intento](figuras/05-04-resultado.png)
+
+Muestra el score global, el video anotado (reproducido mediante un *blob URL* obtenido vía
+`fetch` autenticado — nunca un `<video src>` directo, ya que eso no envía la cabecera de
+autorización) y el desglose por repetición, incluyendo los códigos de error detectados
+(`knee_valgus`/`insufficient_depth`/`excessive_forward_lean`) cuando aplican.
+
+### Historial de intentos (CU-6)
+
+![Pantalla de historial de intentos](figuras/05-05-historial.png)
+
+Lista paginada de intentos propios, ordenada por fecha, con una píldora de estado por intento
+(pendiente/procesando/completado/fallido). En la implementación actual esta lista vive en la propia
+página de inicio (`frontend/src/app/page.tsx`, sección "History"), no en una ruta `/attempts`
+separada — no existe una vista de historial standalone.
