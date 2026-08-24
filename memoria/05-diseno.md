@@ -77,3 +77,53 @@ flowchart LR
 No existe ningún actor adicional (no hay rol de administrador en el sistema real) ni ningún caso de
 uso fuera de estos 7 — este diagrama visualiza los requisitos del Capítulo 4, no añade alcance
 nuevo.
+
+## Diseño de clases
+
+```mermaid
+classDiagram
+    class User {
+        +UUID id
+        +str email
+        +str? hashed_password
+        +datetime created_at
+    }
+    class Attempt {
+        +UUID id
+        +UUID user_id
+        +str exercise_type
+        +str status
+        +str? cv_job_id
+        +str original_video_ref
+        +str? annotated_video_url
+        +JSONB? result
+        +int? overall_score
+        +str? error_code
+        +datetime created_at
+        +datetime? completed_at
+        +datetime expires_at
+        +datetime consent_at
+    }
+    class RefreshToken {
+        +UUID id
+        +UUID user_id
+        +str token_hash
+        +datetime issued_at
+        +datetime expires_at
+        +datetime? revoked_at
+    }
+    User "1" --> "*" Attempt : posee
+    User "1" --> "*" RefreshToken : posee
+```
+
+*(El sufijo `?` marca un campo nullable en la base de datos.)*
+
+Estos son los 3 únicos modelos ORM reales (`backend/app/models/`). La propuesta original de
+`memoria-ada-outline.md` §5 imaginaba clases separadas `Exercise`, `Score`, `Feedback/Tip` y
+`VideoAsset` — ninguna existe como tabla o clase independiente en el sistema real. El score por
+repetición, los códigos de error (`knee_valgus`/`insufficient_depth`/`excessive_forward_lean`) y
+los consejos de mejora viven como **JSON anidado dentro de `Attempt.result`**, con la forma que
+define el contrato de respuesta de cv-service — no como filas o clases propias. `exercise_type` es
+un campo de texto plano, no una entidad `Exercise` normalizada, ya que hoy solo existe un ejercicio
+soportado (sentadilla). Esta es una simplificación deliberada del sistema real, no una omisión de
+este diagrama.
