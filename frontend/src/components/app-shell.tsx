@@ -1,9 +1,40 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Until mounted, resolvedTheme reflects the server render (no system-preference
+  // read yet) — render a disabled placeholder rather than guess and risk a
+  // hydration mismatch between server and client icon.
+  if (!mounted) {
+    return <Button variant="ghost" size="icon-sm" aria-label="Toggle theme" disabled />;
+  }
+
+  const isDark = resolvedTheme === "dark";
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Toggle theme"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+    >
+      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </Button>
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { logout } = useAuth();
@@ -15,9 +46,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link href="/" className="text-base font-semibold">
             AI Fitness Trainer
           </Link>
-          <Button variant="ghost" size="sm" onClick={() => logout()}>
-            Log out
-          </Button>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" onClick={() => logout()}>
+              Log out
+            </Button>
+          </div>
         </div>
       </header>
       {children}
