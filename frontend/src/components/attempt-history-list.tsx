@@ -13,7 +13,7 @@ const DEFAULT_STATUS_PILL_CLASSES = "bg-muted text-muted-foreground";
 const STATUS_PILL_CLASSES: Record<AttemptSummary["status"], string> = {
   queued: DEFAULT_STATUS_PILL_CLASSES,
   processing: DEFAULT_STATUS_PILL_CLASSES,
-  completed: "bg-primary/10 text-primary",
+  completed: "bg-primary/10 text-primary-text",
   failed: "bg-destructive/10 text-destructive",
 };
 

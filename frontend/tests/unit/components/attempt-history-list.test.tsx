@@ -99,7 +99,8 @@ describe("AttemptHistoryList", () => {
     const completedPill = await screen.findByText("completed");
     const failedPill = screen.getByText("failed");
 
-    expect(completedPill.className).toContain("text-primary");
+    expect(completedPill.className.split(" ")).toContain("text-primary-text");
+    expect(completedPill.className.split(" ")).not.toContain("text-primary");
     expect(failedPill.className).toContain("text-destructive");
   });
 

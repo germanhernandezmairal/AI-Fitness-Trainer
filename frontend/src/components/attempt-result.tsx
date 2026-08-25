@@ -16,7 +16,7 @@ export function AttemptResult({ result }: { result: AnalysisResult }) {
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
           Overall score
         </p>
-        <p className="text-4xl font-bold text-primary">
+        <p className="text-4xl font-bold text-primary-text">
           {result.overall_score}
           <span className="text-lg font-normal text-muted-foreground"> / 100</span>
         </p>
@@ -30,7 +30,7 @@ export function AttemptResult({ result }: { result: AnalysisResult }) {
               <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 Rep {rep.rep_index}
               </span>
-              <span className="text-xl font-bold text-primary">
+              <span className="text-xl font-bold text-primary-text">
                 {rep.score}
                 <span className="text-xs font-normal text-muted-foreground"> / 100</span>
               </span>
