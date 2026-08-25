@@ -94,7 +94,7 @@
   --popover-foreground: #f4f6fb;
   --primary: #5261e8;
   --primary-foreground: #ffffff;
-  --primary-text: #6d78f6;
+  --primary-text: #737ef7;
   --secondary: #1b2338;
   --secondary-foreground: #f4f6fb;
   --muted: #1b2338;
@@ -102,8 +102,8 @@
   --accent: #1b2338;
   --accent-foreground: #f4f6fb;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: #556086;
-  --input: #556086;
+  --border: #5b6690;
+  --input: #5b6690;
   --ring: var(--primary-text);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
