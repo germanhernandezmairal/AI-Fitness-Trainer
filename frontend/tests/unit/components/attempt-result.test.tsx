@@ -85,6 +85,7 @@ describe("AttemptResult", () => {
 
     const repScore = screen.getByText(/90/);
     expect(repScore.className).toContain("font-bold");
-    expect(repScore.className).toContain("text-primary");
+    expect(repScore.className.split(" ")).toContain("text-primary-text");
+    expect(repScore.className.split(" ")).not.toContain("text-primary");
   });
 });
