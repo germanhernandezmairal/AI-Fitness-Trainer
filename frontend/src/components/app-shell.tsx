@@ -11,8 +11,11 @@ function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  // next-themes' documented pattern for detecting client-mount to avoid an SSR/hydration mismatch
+  // on resolvedTheme; the effect fires once and only affects this small leaf component, not a
+  // cascading-render risk here.
   useEffect(() => {
-    setMounted(true);
+    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
   // Until mounted, resolvedTheme reflects the server render (no system-preference
