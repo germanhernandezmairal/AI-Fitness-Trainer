@@ -1,0 +1,3 @@
+services:
+  cv-service:
+    build: ../fake-cv-service
