@@ -3,6 +3,7 @@
 import { useAttemptVideo } from "@/hooks/use-attempt-video";
 import type { AnalysisResult } from "@/lib/types";
 import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formErrorMessage } from "@/lib/form-error-messages";
 
 export function AttemptResult({ result }: { result: AnalysisResult }) {
@@ -12,6 +13,11 @@ export function AttemptResult({ result }: { result: AnalysisResult }) {
 
   return (
     <div className="space-y-4">
+      <Alert>
+        <AlertDescription>
+          Scoring shown here is a placeholder while the real AI analysis engine is being deployed.
+        </AlertDescription>
+      </Alert>
       <Card className="p-4">
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
           Overall score

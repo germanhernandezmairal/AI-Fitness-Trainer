@@ -88,4 +88,10 @@ describe("AttemptResult", () => {
     expect(repScore.className.split(" ")).toContain("text-primary-text");
     expect(repScore.className.split(" ")).not.toContain("text-primary");
   });
+
+  it("shows a notice that scoring is a placeholder", () => {
+    render(<AttemptResult result={RESULT} />);
+
+    expect(screen.getByText(/placeholder/i)).toBeInTheDocument();
+  });
 });
