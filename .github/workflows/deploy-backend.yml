@@ -25,4 +25,4 @@ jobs:
             cd ~/ai-fitness-trainer
             git pull origin main
             cd deploy
-            docker compose -f docker-compose.prod.yml up -d --build db migrate backend cv-service caddy
+            docker compose -f docker-compose.prod.yml -f docker-compose.prod.fake-cv.yml up -d --build db migrate backend cv-service caddy

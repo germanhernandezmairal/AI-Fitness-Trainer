@@ -124,3 +124,73 @@ worth knowing if you're setting up Docker/Colima fresh on a machine like this on
   `docker run -v`/Compose bind mounts (e.g. the Caddyfile mount). Fix: start Colima with
   `colima start --mount "/Volumes/<your-volume>:w"` (or add the equivalent to
   `~/.colima/default/colima.yaml`'s `mounts:` list) if the repo lives outside `$HOME`.
+
+## Temporary fallback: GCP `e2-micro` with `fake-cv-service`
+
+While Oracle's Ampere A1 capacity retry keeps running (see §1 above), this fallback ships a real,
+live MVP now on GCP's `e2-micro` Always-Free tier — same domain, same deploy pipeline, `cv-service`
+swapped for `fake-cv-service` (canned scoring, not real AI analysis — the running app says so via
+a visible banner). Full rationale:
+`docs/superpowers/specs/2026-08-25-gcp-fallback-mvp-deployment-design.md`.
+
+**This is a human-executed runbook, not something to automate end-to-end** — same reasoning as §1.
+
+### A. Provision the GCP `e2-micro` VM
+
+1. Create a GCP account/project at <https://console.cloud.google.com/> if you don't have one (a
+   billing account with a card on file is required even for the Always Free tier — it will not be
+   charged unless usage exceeds the free quota).
+2. Enable the Compute Engine API for the project (the console prompts for this automatically the
+   first time you visit **Compute Engine → VM instances**).
+3. Create the instance:
+   - **Region:** one of `us-west1`, `us-central1`, or `us-east1` — these are the *only* regions
+     where the `e2-micro` Always-Free quota applies; any other region bills at standard rates.
+   - **Machine type:** `e2-micro`.
+   - **Boot disk:** a recent Ubuntu LTS image, up to 30GB standard persistent disk (within the
+     Always-Free disk quota).
+   - **Firewall:** allow HTTP (80) and HTTPS (443) traffic (checkboxes in the instance-creation
+     form); SSH (22) is open by default via GCP's default firewall rules.
+4. Unlike Oracle's Ampere A1 shape, `e2-micro` creation is not capacity-constrained — this should
+   succeed on the first attempt, no retry loop needed.
+5. Note the VM's public IP.
+
+### B. Repoint DNS and deploy secrets at the GCP VM
+
+1. In DuckDNS (already set up per §2 above), update the existing
+   `ai-fitness-trainer-api.duckdns.org` record to point at the GCP VM's IP from step A.5 — do not
+   create a second subdomain.
+2. In the GitHub repo's **Settings → Secrets and variables → Actions**, update the existing
+   `DEPLOY_HOST` secret to the GCP VM's IP (or the same DuckDNS hostname), and generate/attach a
+   fresh dedicated SSH deploy key the same way §6 above describes (never reuse the Oracle VM's
+   key) — update `DEPLOY_USER`/`DEPLOY_SSH_KEY` accordingly. Do not add new secret names; these
+   three are repointed, not duplicated.
+
+### C. Initial VM setup
+
+SSH into the VM, then follow §3 above exactly (`curl -fsSL https://get.docker.com | sudo sh`,
+clone the repo, `cp .env.example .env` and fill in real values) — the only difference from §3 is
+the final command, which includes the fake-cv override:
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.prod.fake-cv.yml up -d --build
+```
+
+### D. Verify
+
+Same checklist as §7 above, with one line adjusted: the attempt will reach `completed` with a
+**canned, deterministic** score (not real form analysis) — confirm the placeholder-scoring banner
+from Task 3 is visible on the result page, in addition to §7's other checks.
+
+### E. Cutover back to Oracle / real `cv-service` (whenever that's ready)
+
+1. Revert `.github/workflows/deploy-backend.yml`'s deploy line to drop
+   `-f docker-compose.prod.fake-cv.yml` (Task 2 of the implementation plan made this a one-line
+   change; reverting it is the same one line).
+2. Repoint the DuckDNS record and the three `DEPLOY_*` GitHub secrets at the real target (Oracle's
+   VM, or wherever real `cv-service` ends up running) — same repoint pattern as step B above, just
+   aimed the other direction.
+3. Redeploy (push to `main`, or trigger the workflow manually).
+4. Remove the placeholder-scoring banner added in Task 3 (a follow-up change, not part of this
+   plan).
+5. Whether the GCP VM gets decommissioned or kept as a spare at this point is a decision for
+   whenever cutover actually happens, not now.
