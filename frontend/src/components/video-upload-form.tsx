@@ -12,6 +12,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 const ALLOWED_EXTENSIONS = [".mp4", ".mov"];
 const MAX_BYTES = 104_857_600;
 
+// The only exercise cv-service analyses today is the squat. The rest are shown so the roadmap is
+// visible, but disabled — the backend and cv-service would reject their value. To enable one later:
+// add it to cv-service's SUPPORTED_EXERCISE_TYPES + pipeline, widen the ExerciseType enum in
+// backend/app/schemas/contract.py, then flip `available` here.
+const EXERCISE_OPTIONS = [
+  { value: "squat", label: "Squat", available: true },
+  { value: "pushup", label: "Push-ups", available: false },
+  { value: "pullup", label: "Pull-ups", available: false },
+] as const;
+
 function hasAllowedExtension(filename: string): boolean {
   const lower = filename.toLowerCase();
   return ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
@@ -20,6 +30,7 @@ function hasAllowedExtension(filename: string): boolean {
 export function VideoUploadForm({ onUploaded }: { onUploaded: (attemptId: string) => void }) {
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
+  const [exerciseType, setExerciseType] = useState("squat");
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -49,7 +60,7 @@ export function VideoUploadForm({ onUploaded }: { onUploaded: (attemptId: string
       try {
         const formData = new FormData();
         formData.append("video", file);
-        formData.append("exercise_type", "squat");
+        formData.append("exercise_type", exerciseType);
 
         const response = await apiFetch("/v1/attempts", { method: "POST", body: formData });
 
@@ -80,6 +91,21 @@ export function VideoUploadForm({ onUploaded }: { onUploaded: (attemptId: string
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      <div className="space-y-1">
+        <Label htmlFor="exercise-type">Exercise</Label>
+        <select
+          id="exercise-type"
+          value={exerciseType}
+          onChange={(event) => setExerciseType(event.target.value)}
+          className="block w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {EXERCISE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value} disabled={!option.available}>
+              {option.available ? option.label : `${option.label} (coming soon)`}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="space-y-1">
         <Label htmlFor="video-file">Video file</Label>
         <input
