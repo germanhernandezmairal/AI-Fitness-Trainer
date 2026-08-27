@@ -174,3 +174,30 @@ Lista paginada de intentos propios, ordenada por fecha, con una píldora de esta
 (pendiente/procesando/completado/fallido). En la implementación actual esta lista vive en la propia
 página de inicio (`frontend/src/app/page.tsx`, sección "History"), no en una ruta `/attempts`
 separada — no existe una vista de historial standalone.
+
+## Diseño de persistencia de datos
+
+**Gestión del esquema:** migraciones Alembic (`backend/alembic/versions/`), cabeza actual en la
+revisión `0002` (`0002_auth.py`, tras `0001_initial.py`) — 4 tablas reales en total (los 3 modelos
+de la sección anterior más la tabla interna de control de versiones de Alembic).
+
+**Diseño de borrado (GDPR, CU-7):** `delete_attempt`
+(`backend/app/services/attempts.py`) sigue un orden deliberado, no incidental:
+
+1. Se borra primero el archivo de video local (`storage.delete(...)`).
+2. Se solicita después a cv-service el borrado del job y sus archivos, si existe uno asociado.
+3. Se borra la fila de la base de datos en último lugar, y solo entonces se confirma la
+   transacción.
+
+Este orden garantiza que, si la llamada a cv-service falla, la excepción se propaga *antes* de
+borrar la fila — el intento sobrevive y el usuario puede reintentar el borrado, en vez de que la
+aplicación reporte falsamente un borrado GDPR que en realidad no se completó del todo.
+
+**Retención:** cada `Attempt` tiene un campo `expires_at`; una tarea en segundo plano ("purge",
+cada 6h) borra automáticamente los intentos que superan su fecha de expiración (30 días desde la
+subida) mediante la misma ruta de borrado que CU-7.
+
+**Almacenamiento de video:** disco local, detrás de una interfaz `Storage`
+(`backend/app/services/storage.py`) con una única implementación real, `LocalFilesystemStorage` —
+deliberadamente no S3 ni ningún almacenamiento en la nube, en línea con la restricción de
+despliegue gratuito del proyecto.
