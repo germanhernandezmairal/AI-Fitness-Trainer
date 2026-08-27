@@ -179,13 +179,13 @@ separada — no existe una vista de historial standalone.
 
 **Gestión del esquema:** migraciones Alembic (`backend/alembic/versions/`), cabeza actual en la
 revisión `0002` (`0002_auth.py`, tras `0001_initial.py`) — 4 tablas reales en total (los 3 modelos
-de la sección anterior más la tabla interna de control de versiones de Alembic).
+de la sección «Diseño de clases» más la tabla interna de control de versiones de Alembic).
 
 **Diseño de borrado (GDPR, CU-7):** `delete_attempt`
 (`backend/app/services/attempts.py`) sigue un orden deliberado, no incidental:
 
 1. Se borra primero el archivo de video local (`storage.delete(...)`).
-2. Se solicita después a cv-service el borrado del job y sus archivos, si existe uno asociado.
+2. Se solicita después a cv-service el borrado del job asociado, si existe uno.
 3. Se borra la fila de la base de datos en último lugar, y solo entonces se confirma la
    transacción.
 
