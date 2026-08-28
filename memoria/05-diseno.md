@@ -171,11 +171,10 @@ backend revalida extensión, tamaño, códec (solo H.264) y duración (≤60 s) 
 Muestra el score global, el video anotado (reproducido mediante un *blob URL* obtenido vía
 `fetch` autenticado — nunca un `<video src>` directo, ya que eso no envía la cabecera de
 autorización) y el desglose por repetición, incluyendo los códigos de error que el *pipeline*
-evalúa hoy (`insufficient_depth` y `excessive_forward_lean`) cuando aplican. Existe un tercer
+evalúa (`insufficient_depth` y `excessive_forward_lean`) cuando aplican. Existe un tercer
 código, `knee_valgus`, en el contrato (`backend/app/schemas/contract.py`) y en el mapa de etiquetas
-del frontend (`frontend/src/lib/form-error-messages.ts`), pero no se evalúa actualmente porque
-`cv-service/pipeline.py` asume una única cámara sagital (lateral) y detectar el valgo de rodilla
-exige una vista frontal.
+del frontend (`frontend/src/lib/form-error-messages.ts`), pero no se evalúa por diseño: el valgo de
+rodilla es un defecto del plano frontal y el pipeline analiza una única cámara sagital (lateral).
 
 ### Historial de intentos (CU-6)
 

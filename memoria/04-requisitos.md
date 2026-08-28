@@ -10,8 +10,8 @@ detección de pose — como si fuera una acción propia del usuario).
 ## Requisitos funcionales (casos de uso)
 
 *Los casos de uso describen el comportamiento previsto por el contrato del sistema. Donde la
-implementación actual todavía no lo cumple del todo, se indica explícitamente en el propio caso
-de uso (ver CU-5).*
+implementación se aparta de ese contrato, se indica explícitamente en el propio caso de uso
+(ver CU-5).*
 
 ### CU-1: Registrarse
 
@@ -81,17 +81,18 @@ de uso (ver CU-5).*
 - **Flujo principal:**
   1. El usuario abre el detalle de uno de sus intentos.
   2. El sistema devuelve el estado del intento y, si está completado, el score por repetición,
-     los códigos de error de técnica por repetición (previstos en el contrato y ya representados
+     los códigos de error de técnica por repetición (previstos en el contrato y representados
      en la interfaz, `frontend/src/components/attempt-result.tsx`) y una URL del video anotado.
-     **Estado actual:** `cv-service` todavía no emite estos códigos — `pipeline.py` fija
-     `"errors": []` en cada repetición — por lo que hoy el usuario ve el score y el video, pero
-     ningún consejo de técnica por repetición; esta es la detección de errores de forma pendiente
-     de Alejandro.
+     **Estado actual:** `cv-service` evalúa dos de los tres códigos del contrato —
+     `insufficient_depth` y `excessive_forward_lean` — por repetición (`cv-service/pipeline.py`,
+     desde el commit `aefbc6f`). El tercero, `knee_valgus`, permanece en el contrato y en la
+     interfaz pero no se emite por diseño: es un defecto del plano frontal y el pipeline analiza
+     una única cámara sagital (lateral).
   3. Si el usuario reproduce el video anotado, el frontend lo solicita a través del endpoint proxy
      autenticado — nunca directamente a cv-service.
-- **Postcondición:** El usuario visualiza el score y el video anotado de su intento; los consejos
-  de técnica por repetición quedan pendientes de que `cv-service` los emita. La clave interna de
-  cv-service nunca llega al navegador.
+- **Postcondición:** El usuario visualiza el score, el video anotado y los avisos de técnica por
+  repetición de los dos códigos que el pipeline evalúa. La clave interna de cv-service nunca llega
+  al navegador.
 - **Fuente:** `GET /v1/attempts/{attempt_id}`, `GET /v1/attempts/{attempt_id}/video`
   (`backend/app/api/attempts.py`).
 
@@ -183,7 +184,7 @@ mezclan ambas cosas en una sola afirmación.
 ### RNF-4: Precisión del modelo
 
 - **Real:** no es un modelo de ML entrenado con métricas de accuracy/precision/recall — es un
-  pipeline de reglas basado en umbrales de ángulo articular (p. ej. `GOOD_DEPTH_MIN` en
+  pipeline de reglas basado en umbrales de ángulo articular (p. ej. `GOOD_DEPTH_ANGLE_DEG` en
   `cv-service/pipeline.py`).
 - **Objetivo:** en vez de un target de accuracy clásico, definir un objetivo de fiabilidad de
   detección (p. ej. porcentaje de repeticiones correctamente contadas sobre un set de videos de
