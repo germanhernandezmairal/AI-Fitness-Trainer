@@ -37,8 +37,8 @@ repository's test fixture ([`backend/tests/fixtures/squat.mp4`](backend/tests/fi
    the database, file storage, and the CV service in one call.
 
 `knee_valgus` (knee cave-in) is part of the response contract and the UI, but is
-deliberately **not** detected yet: it is a frontal-plane fault and the current
-pipeline assumes a single side-on camera.
+deliberately **not** detected: it is a frontal-plane fault, and the pipeline works
+from a single side-on camera by design.
 
 ---
 
@@ -149,4 +149,3 @@ by the data/AI engineer.
 - ✅ Public preview deployed (frontend + backend + fake CV, placeholder scoring).
 - 🚧 Real CV service in production — pending Oracle A1 free-tier capacity.
 - 🚧 More exercises (push-ups, pull-ups) — selector is in the UI, marked "coming soon".
-- 🚧 `knee_valgus` detection — needs a second camera angle.
