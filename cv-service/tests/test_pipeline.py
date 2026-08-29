@@ -45,9 +45,11 @@ def test_build_rep_does_not_flag_insufficient_depth_at_or_below_threshold():
 
 
 def test_build_rep_flags_excessive_forward_lean_when_torso_leans_too_much():
-    # cadera y hombro alineados horizontalmente: 90° de inclinación
+    # cadera y hombro alineados horizontalmente (90° de inclinación); rodilla adelante
+    # del tobillo en +x, así que "adelante" es +x y el hombro se inclina hacia adelante
     rep = pipeline.build_rep(
-        1, 0, 10, fps=30.0, min_angle=90.0, hip=[0, 0], shoulder=[10, 0]
+        1, 0, 10, fps=30.0, min_angle=90.0,
+        hip=[0, 0], knee=[10, 20], ankle=[0, 20], shoulder=[10, 0],
     )
 
     assert rep["errors"] == ["excessive_forward_lean"]
@@ -55,7 +57,43 @@ def test_build_rep_flags_excessive_forward_lean_when_torso_leans_too_much():
 
 def test_build_rep_does_not_flag_excessive_forward_lean_when_torso_is_upright():
     rep = pipeline.build_rep(
-        1, 0, 10, fps=30.0, min_angle=90.0, hip=[0, 10], shoulder=[0, 0]
+        1, 0, 10, fps=30.0, min_angle=90.0,
+        hip=[0, 10], knee=[10, 20], ankle=[0, 20], shoulder=[0, 0],
+    )
+
+    assert rep["errors"] == []
+
+
+def test_build_rep_does_not_flag_excessive_forward_lean_when_leaning_backward():
+    # mismo módulo de inclinación (90°) que el caso "adelante", pero el hombro cae del
+    # lado opuesto a donde la rodilla se adelanta respecto al tobillo -- es una
+    # inclinación hacia ATRÁS, no debe etiquetarse como excessive_forward_lean
+    rep = pipeline.build_rep(
+        1, 0, 10, fps=30.0, min_angle=90.0,
+        hip=[0, 0], knee=[10, 20], ankle=[0, 20], shoulder=[-10, 0],
+    )
+
+    assert rep["errors"] == []
+
+
+def test_build_rep_does_not_flag_excessive_forward_lean_when_torso_vector_is_sub_pixel():
+    # hombro y cadera casi coincidentes (0.05px de separación horizontal): el ángulo que
+    # sale de un vector así de pequeño es ruido de tracking, no una inclinación real,
+    # aunque matemáticamente dé 90° y la dirección "coincida" con adelante
+    rep = pipeline.build_rep(
+        1, 0, 10, fps=30.0, min_angle=90.0,
+        hip=[100, 100], knee=[110, 140], ankle=[100, 140], shoulder=[100.05, 100],
+    )
+
+    assert rep["errors"] == []
+
+
+def test_build_rep_does_not_flag_excessive_forward_lean_when_forward_axis_is_sub_pixel():
+    # rodilla y tobillo casi coincidentes: no hay forma confiable de saber hacia dónde
+    # es "adelante" en este frame, así que no se etiqueta el error
+    rep = pipeline.build_rep(
+        1, 0, 10, fps=30.0, min_angle=90.0,
+        hip=[0, 0], knee=[100.01, 140], ankle=[100, 140], shoulder=[10, 0],
     )
 
     assert rep["errors"] == []
@@ -63,13 +101,17 @@ def test_build_rep_does_not_flag_excessive_forward_lean_when_torso_is_upright():
 
 def test_build_rep_can_flag_both_errors_at_once():
     rep = pipeline.build_rep(
-        1, 0, 10, fps=30.0, min_angle=120.0, hip=[0, 0], shoulder=[10, 0]
+        1, 0, 10, fps=30.0, min_angle=120.0,
+        hip=[0, 0], knee=[10, 20], ankle=[0, 20], shoulder=[10, 0],
     )
 
     assert set(rep["errors"]) == {"insufficient_depth", "excessive_forward_lean"}
 
 
-UPRIGHT = ([0, 10], [0, 0])  # (hip, shoulder) sin inclinación, para detecciones de relleno
+# (hip, knee, ankle, shoulder) sin inclinación, para detecciones de relleno. La rodilla
+# se pone adelante del tobillo en +x (como en un squat real) para que "adelante" quede
+# definido incluso en los frames de relleno.
+UPRIGHT = ([0, 10], [5, 20], [0, 20], [0, 0])
 
 
 def test_segment_reps_counts_two_full_repetitions():
@@ -97,10 +139,10 @@ def test_segment_reps_ignores_an_incomplete_repetition():
     assert reps == []
 
 
-def test_segment_reps_uses_hip_and_shoulder_from_the_min_angle_frame():
+def test_segment_reps_uses_landmarks_from_the_min_angle_frame():
     # la inclinación excesiva ocurre justo en el frame del ángulo mínimo (frame 2);
     # los demás frames están erguidos -- el error debe salir de ESE frame, no de otro
-    leaning = ([0, 0], [10, 0])  # 90° de inclinación
+    leaning = ([0, 0], [10, 20], [0, 20], [10, 0])  # 90° de inclinación hacia adelante
     detections = [
         (0, 170, *UPRIGHT), (1, 150, *UPRIGHT), (2, 80, *leaning), (3, 170, *UPRIGHT),
     ]

@@ -26,10 +26,12 @@ archivo. Se amplía a medida que se añade cada script del plan
 | `PENALTY_PER_DEGREE` | Cuántos puntos de `score` se restan por cada grado que el ángulo mínimo de una rep supera `GOOD_DEPTH_ANGLE_DEG`. |
 | `NoPoseDetectedError` | Un tipo de error a medida (no lleva lógica propia, solo un nombre) que se lanza cuando MediaPipe no detecta a ninguna persona en todo el video. Sirve para que `jobs.py` distinga este caso ("el usuario debe regrabar") de un fallo inesperado del sistema — ver conversación sobre por qué no es un error genérico. |
 | `calculate_angle(a, b, c)` | Calcula el ángulo (en grados) entre tres puntos, con vértice en `b`. Se usa con (cadera, rodilla, tobillo) para obtener el ángulo de la rodilla en cada frame, y con (cadera, hombro) más un eje vertical dentro de `torso_lean_from_vertical`. |
-| `torso_lean_from_vertical(hip, shoulder)` | Ángulo entre el vector cadera→hombro y la vertical de la imagen. 0° = torso erguido. Se evalúa en el frame donde ocurre el ángulo mínimo de rodilla de cada rep (el punto más bajo del squat), no en cualquier frame. |
+| `torso_lean_from_vertical(hip, shoulder)` | Ángulo (solo magnitud, sin dirección) entre el vector cadera→hombro y la vertical de la imagen. 0° = torso erguido. No distingue adelante de atrás por sí sola — ver `is_excessive_forward_lean`. Se evalúa en el frame donde ocurre el ángulo mínimo de rodilla de cada rep (el punto más bajo del squat), no en cualquier frame. |
+| `MIN_TORSO_VECTOR_NORM_PX` (1.0) | Norma mínima en píxeles que debe tener el vector cadera→hombro o el vector tobillo→rodilla para confiar en su dirección; por debajo, se trata como ruido de tracking de sub-píxel y no se marca `excessive_forward_lean`. |
+| `is_excessive_forward_lean(hip, knee, ankle, shoulder)` | Decide si `excessive_forward_lean` aplica: usa la posición horizontal de la rodilla respecto al tobillo como referencia de "adelante" (independiente de hacia qué lado mire la cámara), y solo marca el error si el hombro se inclina hacia ese mismo lado Y la magnitud de `torso_lean_from_vertical` supera `EXCESSIVE_LEAN_DEG`. Ver "de dónde sale cada código" más abajo para la historia completa. |
 | `score_from_angle(min_angle)` | Convierte el ángulo mínimo alcanzado en una repetición en una puntuación de 0 a 100, según `GOOD_DEPTH_ANGLE_DEG`. |
-| `build_rep(...)` | Empaqueta los datos de una repetición (índice, tiempos de inicio/fin, ángulo mínimo, score, `errors`) en el diccionario con la forma exacta que espera el contrato de API. Recibe opcionalmente `hip`/`shoulder` del frame de ángulo mínimo para evaluar `excessive_forward_lean`. |
-| `segment_reps(detections, fps)` | La "máquina de estados": recorre la lista de ángulos frame a frame y decide dónde empieza y termina cada repetición (de pie → bajando → de pie de nuevo), y recuerda `hip`/`shoulder` del frame de ángulo mínimo de cada rep para pasárselo a `build_rep`. `detections` es una lista de `(número_de_frame, ángulo, hip, shoulder)`, una por cada frame donde sí se detectó a la persona. |
+| `build_rep(...)` | Empaqueta los datos de una repetición (índice, tiempos de inicio/fin, ángulo mínimo, score, `errors`) en el diccionario con la forma exacta que espera el contrato de API. Recibe opcionalmente `hip`/`knee`/`ankle`/`shoulder` del frame de ángulo mínimo -- si falta alguno, no evalúa `excessive_forward_lean`. |
+| `segment_reps(detections, fps)` | La "máquina de estados": recorre la lista de ángulos frame a frame y decide dónde empieza y termina cada repetición (de pie → bajando → de pie de nuevo), y recuerda los landmarks del frame de ángulo mínimo de cada rep para pasárselos a `build_rep`. `detections` es una lista de `(número_de_frame, ángulo, hip, knee, ankle, shoulder)`, una por cada frame donde sí se detectó a la persona. |
 | `fps` (frames por segundo) | Cuántos frames tiene el video por cada segundo real. Se usa para convertir "número de frame" en "segundos", y así calcular `start_time_sec`/`end_time_sec` de cada rep. |
 | `state` | La variable que recuerda en qué parte del movimiento estamos mientras se recorren los frames: `"standing"` (de pie, esperando que empiece una rep) o cualquier otro valor (dentro de una rep, bajando/subiendo). |
 
@@ -61,6 +63,24 @@ y el mensaje asociado en `docs/2026-08-11-alejandro-cv-form-error-detection-mess
 - **`excessive_forward_lean`** — el umbral (`EXCESSIVE_LEAN_DEG` = 45°) es un punto de partida
   propuesto en el mensaje a Alejandro, sin respaldo bibliográfico específico — a validar contra
   videos de referencia reales, no una cifra de la literatura.
+
+  La primera versión de `torso_lean_from_vertical` solo medía magnitud de inclinación, sin
+  distinguir adelante de atrás (un torso 45° hacia atrás daba el mismo ángulo que uno 45° hacia
+  adelante) — encontrado en revisión de código el 20 de agosto de 2026, ver
+  `docs/2026-08-20-alejandro-cv-form-error-detection-followup-message.md`. `is_excessive_forward_lean`
+  arregla esto usando la posición horizontal de la rodilla respecto al tobillo como referencia de
+  "adelante" (avanza en esa dirección durante el descenso sin importar hacia qué lado mire la
+  cámara), y descarta la medición por completo (`MIN_TORSO_VECTOR_NORM_PX`) cuando cadera/hombro o
+  tobillo/rodilla quedan casi coincidentes en píxeles, para no confiar en ruido de tracking de
+  sub-píxel.
+
+  **Limitación conocida de esta heurística, no un bug:** asume que más inclinación de torso viene
+  acompañada de más avance de rodilla sobre el tobillo, que es lo típico. Pero un squat muy
+  hip-dominant/low-bar, o una dorsiflexión de tobillo limitada que impide que la rodilla avance,
+  puede producir un torso genuinamente muy inclinado hacia adelante con la rodilla quieta o incluso
+  detrás del tobillo -- en ese caso las dos señales no coinciden y no se marca el error, aunque
+  visualmente sí haya inclinación excesiva. Al validar `EXCESSIVE_LEAN_DEG` contra videos reales
+  (punto pendiente de arriba), conviene incluir a propósito algún video de ese estilo de sentadilla.
 
 - **`knee_valgus`** — **no implementado en esta ronda**, a propósito, no por omisión.
   `pipeline.py` asume una sola cámara lateral (usa solo landmarks del lado derecho:
