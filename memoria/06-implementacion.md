@@ -169,9 +169,13 @@ cadena literal `"squat-rules-v1"` y `exercise_type` es `"squat"`.
 
 ### 6.2.1 Contrato e integración entre servicios
 
-El contrato interno entre el backend y `cv-service` vive en un único módulo de esquemas
-(`backend/app/schemas/contract.py`; `cv-service` tiene su equivalente) y lo validan **los dos
-lados**. El flujo de un análisis, de principio a fin:
+El contrato interno entre el backend y `cv-service` está definido en un único módulo de esquemas
+del lado del backend (`backend/app/schemas/contract.py`). El backend lo valida con Pydantic **en
+ambos sentidos**: la respuesta síncrona de `POST /v1/jobs` (`JobAccepted.model_validate` en
+`backend/app/services/cv_client.py`) y el cuerpo del webhook (`JobStatus.model_validate_json` en
+`backend/app/api/webhooks.py`). `cv-service` no tiene módulo de esquemas propio ni valida los
+payloads con uno: construye sus respuestas como diccionarios conforme a ese mismo contrato, cuyo
+diseño se detalla en el §5. El flujo de un análisis, de principio a fin:
 
 1. **`POST /v1/attempts`** (multipart: `video`, `exercise_type`) → el backend valida la subida
    (`backend/app/services/validation.py`): extensión `.mp4`/`.mov`, ≤ 100 MB, códec de vídeo
@@ -192,10 +196,11 @@ lados**. El flujo de un análisis, de principio a fin:
    cuadre o cuyo timestamp caiga fuera de una ventana de 300 s. El *porqué* del diseño de la firma
    está en el §5; aquí solo se nombra como parte del flujo.
 5. **Reconciliador por *polling*** (`reconcile_stale_attempts`, `backend/app/services/jobs.py`,
-   APScheduler cada 30 s): cualquier intento que siga no-terminal 30 s después de crearse se
-   consulta directamente a `cv-service` (`GET /v1/jobs/{id}`). Este es el mecanismo de respaldo
+   APScheduler cada 30 s): todo intento que tenga un `cv_job_id` asignado y siga no terminal
+   30 s después de crearse se consulta directamente a `cv-service` (`GET /v1/jobs/{id}`). Este es
+   el mecanismo de respaldo
    real cuando un webhook se pierde — **el webhook es una optimización, no la fuente de verdad**.
-6. **Aplicación exactamente-una-vez:** tanto el webhook como el reconciliador llaman a
+6. **Aplicación exactamente una vez:** tanto el webhook como el reconciliador llaman a
    `apply_job_status` (`backend/app/services/attempts.py`), que hace `SELECT … FOR UPDATE` sobre el
    intento y sale sin hacer nada si ya está en estado terminal — así, un resultado entregado dos
    veces, o por ambas vías, se aplica una sola vez. Al aplicarlo, la `annotated_video_url` que
