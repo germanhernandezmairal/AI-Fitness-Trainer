@@ -209,3 +209,59 @@ diseño se detalla en el §5. El flujo de un análisis, de principio a fin:
 
 Una tarea programada aparte (`purge_expired_attempts`, cada 6 h) borra los intentos que superan su
 ventana de retención (`expires_at`, 30 días); se nombra aquí, su diseño es el del §5.
+
+### 6.2.2 Decisiones tecnológicas
+
+- **FastAPI en los dos servicios.** `cv-service` *tiene* que ser Python (MediaPipe/OpenCV). El
+  backend es FastAPI también: un solo lenguaje en todo el proyecto, asincronía nativa para la ida
+  y vuelta con `cv-service`, y modelos Pydantic que hacen de contrato validado
+  (`backend/app/schemas/contract.py`). Persistencia con SQLAlchemy en modo *async*
+  (`sqlalchemy[asyncio]`, driver `asyncpg`) más Alembic para las migraciones, sobre PostgreSQL. La
+  propuesta previa al código planteaba "FastAPI frente a Express" y una base con modelo entrenado
+  — ninguna de las dos cosas se sostuvo: FastAPI en ambos servicios, y reglas deterministas sin
+  entrenamiento (§6.1.6).
+- **Next.js (App Router)** en el frontend; el navegador habla directamente con la URL base del
+  backend (`NEXT_PUBLIC_API_BASE_URL`, `frontend/src/lib/api-client.ts`), con el *access token*
+  en memoria y el *refresh token* en `localStorage` — sin capa BFF ni *proxy* de rutas de API
+  intermedio (decisión registrada en el §5 y en
+  `docs/superpowers/specs/2026-08-04-frontend-design.md`).
+- **Omisiones deliberadas**, cada una con su motivo:
+  - *Sin cola de tareas* (Celery/RQ/Arq): `BackgroundTasks` más el reconciliador por *polling*
+    cubren el MVP de una sola máquina; una cola es peso operativo que el objetivo de *hosting*
+    gratuito no puede permitirse.
+  - *Sin almacenamiento de objetos* (S3/GCS): los vídeos originales van a disco local detrás de la
+    interfaz `Storage` (`backend/app/services/storage.py`, un `Protocol` cuya única implementación
+    real es `LocalFilesystemStorage`); intercambiable más adelante sin tocar a quien la usa.
+  - *Sin capa de caché* (Redis): la propuesta original asumía una; nada en la carga real la
+    necesita.
+  - *Los "consejos" son estáticos*: `frontend/src/lib/form-error-messages.ts` es un
+    `Record<FormErrorCode, string>` que asigna a cada código de error una cadena fija en inglés
+    (`knee_valgus`, `insufficient_depth`, `excessive_forward_lean`); no hay plantillas ni
+    generación de lenguaje natural.
+
+### 6.2.3 Empaquetado y despliegue (resumen)
+
+- `backend/Dockerfile` (resolución de dependencias con `uv`, `uv sync --frozen --no-dev`) y
+  `cv-service/Dockerfile` (librerías de sistema para OpenCV/MediaPipe más `pip install` desde
+  `requirements.txt`). Ninguno de los dos fija arquitectura; la compilación y ejecución sobre
+  `linux/arm64` —la arquitectura de la VM Ampere A1 de Oracle— se verificó de forma específica
+  para `cv-service`, que es el que arrastra `opencv-python` y `mediapipe`
+  (`deploy/arm64-verification.md`).
+- `backend/docker-compose.yml` para desarrollo local: levanta `db` (PostgreSQL) + `fake-cv` por
+  defecto; el `cv-service` real queda detrás de un perfil `real-cv`
+  (`docker compose --profile real-cv up`). Se mantiene `fake-cv-service` (sin MediaPipe/OpenCV,
+  devuelve un resultado determinista predefinido) para arranques locales rápidos y para probar
+  las rutas de fallo.
+- `deploy/docker-compose.prod.yml` (servicios `db`, `migrate`, `backend`, `cv-service`, `caddy`),
+  con la variante de superposición `deploy/docker-compose.prod.fake-cv.yml` que sustituye
+  `cv-service` por `fake-cv-service`, y `deploy/Caddyfile` (`reverse_proxy` al backend con TLS
+  automático) para producción.
+- **Estrategia de *hosting* gratuito** (el detalle completo —aprovisionamiento, CI/CD, refresco de
+  DNS, copias de seguridad, verificación en vivo— está en el §12 Anexos): frontend Next.js en
+  Vercel; backend + `cv-service` + PostgreSQL en una única máquina virtual siempre-gratuita
+  (objetivo: Oracle Cloud Ampere A1; el *fallback* actualmente en producción es una GCP
+  `e2-micro`, más pequeña, que corre `fake-cv-service` con un aviso visible en la aplicación),
+  con Caddy dando TLS automático detrás de un subdominio DuckDNS. La restricción "tiene que ser
+  gratis" se decidió con Alejandro y su desarrollo está en
+  `docs/superpowers/specs/2026-08-14-free-tier-deployment-design.md` (y el *fallback* de GCP en
+  `docs/superpowers/specs/2026-08-25-gcp-fallback-mvp-deployment-design.md`).
