@@ -88,7 +88,10 @@ angle" used in the biomechanics literature — ~90° of flexion ≈ a ~90–100�
 convention matters for reading §1.4's thresholds.
 
 Torso lean (`torso_lean_from_vertical`) is the angle between the hip→shoulder vector and image-space
-vertical `[0, -1]`; 0° = perfectly upright. Used only in §1.4.
+vertical; 0° = perfectly upright. It is *magnitude only* — it does not tell forward from backward.
+Direction is resolved by `is_excessive_forward_lean` (§1.4), which was added after a code-review
+finding that the bare magnitude check mislabeled a backward lean as `excessive_forward_lean`
+(commit `a5ad6b8`, merged 2026-08-31). Used only in §1.4.
 
 ### 1.3 Segmentación en repeticiones
 
@@ -97,9 +100,9 @@ A simple state machine over the per-frame angle sequence (`segment_reps`), shown
 
 - Start in **`de pie`** (standing). When the angle drops below `STANDING_THRESHOLD = 160°`, a rep
   opens (**`bajando`** / in-rep) and the current frame is its start.
-- While in-rep, track the running **minimum** angle and the hip/shoulder coordinates *at that
-  minimum frame* (needed so `excessive_forward_lean` is evaluated at the bottom of the rep, not an
-  arbitrary frame).
+- While in-rep, track the running **minimum** angle and the hip/knee/ankle/shoulder coordinates *at
+  that minimum frame* (needed so `excessive_forward_lean` is evaluated at the bottom of the rep, not
+  an arbitrary frame — and it needs all four landmarks, not just hip/shoulder, since `a5ad6b8`).
 - When the angle returns to ≥ `STANDING_THRESHOLD`, the rep closes and is appended.
 - A rep that opens but never returns to standing (video cut mid-rep) is **discarded**, not counted.
 
@@ -124,10 +127,18 @@ Per-rep form-error codes (`build_rep`), from the closed catalogue in
 `backend/app/schemas/contract.py::FormErrorCode`:
 
 - `insufficient_depth` — `min_angle > GOOD_DEPTH_ANGLE_DEG`.
-- `excessive_forward_lean` — `torso_lean_from_vertical(hip, shoulder) > EXCESSIVE_LEAN_DEG` at the
-  minimum-angle frame. `EXCESSIVE_LEAN_DEG = 45°` is an explicit **heuristic starting point**, not
-  from a cited source (GLOSARIO.md says so; also note the direction-agnostic limitation flagged in
-  `docs/2026-08-20-…-followup-message.md`).
+- `excessive_forward_lean` — `is_excessive_forward_lean(hip, knee, ankle, shoulder)` at the
+  minimum-angle frame. It flags the error only when (a) the torso-lean *magnitude*
+  (`torso_lean_from_vertical`) exceeds `EXCESSIVE_LEAN_DEG = 45°`, **and** (b) the shoulder leans the
+  same horizontal way the knee sits relative to the ankle (knee-forward-of-ankle defines "forward"
+  camera-orientation-independently), **and** (c) both the hip→shoulder and ankle→knee vectors are at
+  least `MIN_TORSO_VECTOR_NORM_PX = 1.0` px long (sub-pixel landmarks → no flag rather than a guess).
+  `EXCESSIVE_LEAN_DEG = 45°` is an explicit **heuristic starting point**, not from a cited source
+  (GLOSARIO.md). History: the original check was magnitude-only and direction-agnostic
+  (`docs/2026-08-20-…-followup-message.md` flagged it); `a5ad6b8` (merged 2026-08-31) made it
+  direction-aware and added the norm guard. Documented residual limitation (`GLOSARIO.md`, not a
+  bug): a hip-dominant / low-bar squat can lean the torso forward without the knee advancing past the
+  ankle, so the two signals disagree and the error is not flagged.
 - `knee_valgus` — in the contract and the frontend label map, but **not evaluated, by design**
   (frontal-plane fault, single sagittal camera). Cross-reference §4 CU-5 / §5.
 
