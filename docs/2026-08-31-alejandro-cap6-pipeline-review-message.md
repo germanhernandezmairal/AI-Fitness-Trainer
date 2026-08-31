@@ -6,10 +6,10 @@
 **Relacionado:** `memoria/06-implementacion.md` §6.1;
 `docs/superpowers/specs/2026-08-28-memoria-cap6-implementacion-design.md`;
 `docs/2026-08-11-alejandro-cv-form-error-detection-message.md` y
-`docs/2026-08-20-alejandro-cv-form-error-detection-followup-message.md` (touch-points previos)
+`docs/2026-08-20-alejandro-cv-form-error-detection-followup-message.md` (contactos previos)
 
-**No bloquea nada:** el capítulo ya está integrado en `main`. Esto es una revisión de exactitud
-técnica; cualquier corrección entra como commit de seguimiento.
+**No bloquea nada:** el capítulo está pendiente de integrarse en `main` (se integra esta semana).
+Esto es una revisión de exactitud técnica; cualquier corrección entra como commit de seguimiento.
 
 ---
 
@@ -26,7 +26,7 @@ texto para que confirmes o corrijas. Te resumo los puntos sustantivos:
    trabajo, con `min_detection_confidence=0.5` y `min_tracking_confidence=0.5`. Se leen los
    fotogramas con OpenCV en BGR, se convierten a RGB y se pasan a `pose.process`. De todos los
    landmarks solo se usan **cuatro, todos del lado derecho**: `RIGHT_HIP`, `RIGHT_KNEE`,
-   `RIGHT_ANKLE`, `RIGHT_SHOULDER`, des-normalizados a píxeles multiplicando por ancho/alto del
+   `RIGHT_ANKLE`, `RIGHT_SHOULDER`, desnormalizados a píxeles multiplicando por ancho/alto del
    fotograma. Eso codifica la suposición explícita de **una sola cámara lateral (plano sagital)**
    con el lado derecho hacia la cámara, y es lo que hace que `knee_valgus` sea indetectable por
    diseño. Si ningún fotograma produce pose, el trabajo falla con `no_pose_detected`
@@ -46,7 +46,7 @@ texto para que confirmes o corrijas. Te resumo los puntos sustantivos:
    *en repetición*) en `segment_reps`, con `STANDING_THRESHOLD = 160°` como frontera. Al abrir la
    rep se guarda el fotograma inicial y los cuatro landmarks; mientras dura, se guarda el **ángulo
    mínimo** y los landmarks *de ese fotograma concreto* (para poder evaluar la inclinación en el
-   punto más bajo, no en uno cualquiera). Una rep que empieza y nunca vuelve a "de pie" (vídeo
+   punto más bajo, no en uno cualquiera). Una rep que empieza y nunca vuelve a "de pie" (video
    cortado a mitad de rep) se **descarta**, no se cuenta. `fps` se lee de OpenCV (`CAP_PROP_FPS`,
    30 por defecto); los tiempos de rep son `nº fotograma / fps` redondeado a dos decimales.
 
@@ -76,14 +76,15 @@ texto para que confirmes o corrijas. Te resumo los puntos sustantivos:
    sin que la rodilla avance sobre el tobillo, y entonces el error no se marca aunque visualmente
    la inclinación sea excesiva.
 
-6. **Vídeo anotado.** En cada fotograma con pose se dibuja el esqueleto
-   (`mp_drawing.draw_landmarks` con `POSE_CONNECTIONS`) y el ángulo de rodilla como texto
-   (`cv2.putText`, `"<n> deg"`); **todos** los fotogramas se escriben a la salida, anotados o no.
-   El códec es `ANNOTATED_VIDEO_FOURCC = "avc1"` (H.264). Explico el porqué de que **no sea el
+6. **Para tu información, sobre el video anotado.** (Este commit es mío, no tuyo; lo incluyo solo
+   para que el capítulo cuadre, no necesito que revises nada.) En cada fotograma con pose se dibuja
+   el esqueleto (`mp_drawing.draw_landmarks` con `POSE_CONNECTIONS`) y el ángulo de rodilla como
+   texto (`cv2.putText`, `"<n> deg"`); **todos** los fotogramas se escriben a la salida, anotados o
+   no. El códec es `ANNOTATED_VIDEO_FOURCC = "avc1"` (H.264). Explico el porqué de que **no sea el
    `mp4v` obvio**: el `<video>` de los navegadores no decodifica MPEG-4 Part 2, así que un `mp4v`
    se ve como un fotograma en blanco; `avc1` produce H.264 real con este build de OpenCV sin
    post-proceso con `ffmpeg`. Lo describo como un bug real detectado la primera vez que se
-   reprodujo en navegador un vídeo del pipeline **real** (commit `eeae94a`).
+   reprodujo en navegador un video del pipeline **real** (commit `eeae94a`).
 
 7. **Naturaleza del pipeline.** Digo que MediaPipe es lo único aprendido y que todo aguas abajo
    (ángulos, máquina de estados, umbrales, puntuación) son **reglas deterministas**, sin conjunto

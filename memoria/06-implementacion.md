@@ -8,7 +8,7 @@
 
 ## 6.1 Pipeline de análisis de movimiento (cv-service)
 
-El análisis de la sentadilla lo desarrolla Alejandro (línea de Datos/IA) y está integrado en este
+El análisis de la sentadilla lo desarrolla Alejandro (pista de Datos/IA) y está integrado en este
 mismo repositorio como el servicio `cv-service`. El código vive en `cv-service/pipeline.py` y sus
 constantes están documentadas en `cv-service/GLOSARIO.md`. Esta sección lo describe en detalle
 técnico a partir de ese código.
@@ -22,14 +22,14 @@ instancia `Pose` por trabajo, con `min_detection_confidence=0.5` y `min_tracking
 Por cada fotograma: OpenCV (`cv2.VideoCapture`) lo lee en formato BGR, se convierte a RGB
 (`cv2.cvtColor(..., COLOR_BGR2RGB)`) y se pasa a `pose.process(...)`. Los fotogramas en los que
 MediaPipe no detecta a ninguna persona se ignoran **para el análisis** —no se cuentan ni se les
-dibuja esqueleto—, pero se escriben igual al vídeo de salida, sin anotar (§6.1.5). Si **ningún**
-fotograma del vídeo produce una pose, el trabajo termina en fallo con el código `no_pose_detected`
+dibuja esqueleto—, pero se escriben igual al video de salida, sin anotar (§6.1.5). Si **ningún**
+fotograma del video produce una pose, el trabajo termina en fallo con el código `no_pose_detected`
 (excepción `NoPoseDetectedError`).
 
-De todos los puntos que devuelve MediaPipe se usan **solo cuatro**, todos del lado derecho del
-cuerpo: cadera (`RIGHT_HIP`), rodilla (`RIGHT_KNEE`), tobillo (`RIGHT_ANKLE`) y hombro
-(`RIGHT_SHOULDER`). Las coordenadas, que MediaPipe entrega normalizadas a [0, 1], se
-des-normalizan a píxeles multiplicándolas por el ancho y el alto del fotograma.
+De todos los puntos de referencia (*landmarks*) que devuelve MediaPipe se usan **solo cuatro**,
+todos del lado derecho del cuerpo: cadera (`RIGHT_HIP`), rodilla (`RIGHT_KNEE`), tobillo
+(`RIGHT_ANKLE`) y hombro (`RIGHT_SHOULDER`). Las coordenadas, que MediaPipe entrega normalizadas a
+[0, 1], se desnormalizan a píxeles multiplicándolas por el ancho y el alto del fotograma.
 
 Esto codifica una **suposición explícita del pipeline: una sola cámara lateral (plano sagital)**,
 con el lado derecho del atleta hacia ella. Es la misma suposición que hace que el valgo de rodilla
@@ -72,14 +72,14 @@ stateDiagram-v2
     DePie --> EnRepeticion: ángulo &lt; 160° (STANDING_THRESHOLD)<br/>abre la rep: guarda el fotograma inicial<br/>y los landmarks (cadera, rodilla, tobillo, hombro)
     EnRepeticion --> EnRepeticion: ángulo &lt; mínimo actual<br/>actualiza el ángulo mínimo y los landmarks de ese fotograma
     EnRepeticion --> DePie: ángulo ≥ 160°<br/>cierra la rep y la añade (build_rep)
-    EnRepeticion --> [*]: el vídeo termina dentro de una rep<br/>la rep se descarta, no se cuenta
+    EnRepeticion --> [*]: el video termina dentro de una rep<br/>la rep se descarta, no se cuenta
 ```
 
 - El umbral `STANDING_THRESHOLD = 160°` separa "de pie" de "en movimiento".
 - Mientras dura la repetición se guarda el **ángulo mínimo** alcanzado y las coordenadas de los
-  cuatro landmarks *en ese fotograma concreto* —se necesitan para evaluar `excessive_forward_lean`
+  cuatro *landmarks* *en ese fotograma concreto* —se necesitan para evaluar `excessive_forward_lean`
   justo en el punto más bajo de la sentadilla, no en un fotograma cualquiera (§6.1.4)—.
-- Una repetición que empieza pero nunca vuelve a "de pie" (vídeo cortado a mitad de rep) se
+- Una repetición que empieza pero nunca vuelve a "de pie" (video cortado a mitad de rep) se
   **descarta**, no se cuenta.
 
 Los fotogramas por segundo (`fps`) se leen de OpenCV (`CAP_PROP_FPS`, con 30 por defecto si el
@@ -113,7 +113,7 @@ Los **códigos de error de forma** por repetición (`build_rep`) salen del catá
 - **`excessive_forward_lean`** — se evalúa en el fotograma del ángulo mínimo mediante
   `is_excessive_forward_lean(cadera, rodilla, tobillo, hombro)`, que solo marca el error si se
   cumplen **las tres** condiciones: (1) los vectores cadera→hombro y tobillo→rodilla miden al menos
-  `MIN_TORSO_VECTOR_NORM_PX = 1 px` (si no, los landmarks están demasiado juntos y su dirección es
+  `MIN_TORSO_VECTOR_NORM_PX = 1 px` (si no, los *landmarks* están demasiado juntos y su dirección es
   ruido de seguimiento de sub-píxel: no se marca nada, en vez de adivinar); (2) el hombro se
   desplaza (respecto a la cadera) hacia el mismo lado horizontal en el que la rodilla queda por
   delante del tobillo —esa relación rodilla-tobillo define "adelante" de forma independiente de
@@ -135,34 +135,34 @@ Los **códigos de error de forma** por repetición (`build_rep`) salen del catá
 
 | Constante | Valor | Papel | Fuente |
 |---|---|---|---|
-| `STANDING_THRESHOLD` | 160° | Ángulo de rodilla por encima del cual se considera "de pie" (abre/cierra rep). | Heurística |
+| `STANDING_THRESHOLD` | 160° | Ángulo de rodilla a partir del cual se considera "de pie" (abre/cierra rep). | Heurística |
 | `GOOD_DEPTH_ANGLE_DEG` | 100° | Umbral de "buena profundidad": por debajo o igual no se penaliza ni se marca `insufficient_depth`. | Schoenfeld 2010 / NSCA |
 | `PENALTY_PER_DEGREE` | 3 | Puntos restados por cada grado por encima de `GOOD_DEPTH_ANGLE_DEG`. | Heurística |
 | `EXCESSIVE_LEAN_DEG` | 45° | Magnitud de inclinación de torso por encima de la cual se marca `excessive_forward_lean`. | Punto de partida heurístico |
-| `MIN_TORSO_VECTOR_NORM_PX` | 1.0 px | Norma mínima de un vector de landmarks para fiarse de su dirección. | Salvaguarda frente al ruido de seguimiento |
-| `ANNOTATED_VIDEO_FOURCC` | `avc1` | Códec del vídeo anotado (H.264). | Compatibilidad con `<video>` (§6.1.5) |
+| `MIN_TORSO_VECTOR_NORM_PX` | 1 px | Norma mínima de un vector de *landmarks* para fiarse de su dirección. | Salvaguarda frente al ruido de seguimiento |
+| `ANNOTATED_VIDEO_FOURCC` | `avc1` | Códec del video anotado (H.264). | Compatibilidad con `<video>` (§6.1.5) |
 
-### 6.1.5 Vídeo anotado
+### 6.1.5 Video anotado
 
 En cada fotograma con pose detectada se dibuja el esqueleto (`mp_drawing.draw_landmarks` con
 `POSE_CONNECTIONS`) y el ángulo de rodilla entero como texto junto a la rodilla (`cv2.putText`,
-`"<n> deg"`). **Todos** los fotogramas —anotados o no— se escriben al vídeo de salida
+`"<n> deg"`). **Todos** los fotogramas —anotados o no— se escriben al video de salida
 (`writer.write(frame)`).
 
-El códec es `ANNOTATED_VIDEO_FOURCC = cv2.VideoWriter_fourcc(*"avc1")`. Merece explicar **por qué
-no es el `mp4v` obvio**: el elemento `<video>` de los navegadores solo decodifica H.264/AVC,
-VP8/VP9 o AV1, no MPEG-4 Part 2, así que un archivo `mp4v` se reproduce como un fotograma en blanco
-en la página de resultados. `avc1` produce H.264 real con este build de OpenCV, sin necesitar un
-post-proceso con `ffmpeg`. Fue un bug real, detectado la primera vez que se reprodujo en un
-navegador un vídeo del pipeline **real** (no del falso) — commit `eeae94a`, *"encode annotated
-video as H.264, not MPEG-4 Part 2"* (véase también la fase correspondiente del §3).
+El códec es `ANNOTATED_VIDEO_FOURCC = cv2.VideoWriter_fourcc(*"avc1")`. Conviene explicar **por qué
+no es el `mp4v` obvio**: los navegadores no decodifican MPEG-4 Part 2 en `<video>` —solo
+H.264/AVC, VP8/VP9 o AV1 (y HEVC en Safari)—, así que un archivo `mp4v` se reproduce como un
+fotograma en blanco en la página de resultados. `avc1` produce H.264 real con este build de
+OpenCV, sin necesitar un post-proceso con `ffmpeg`. Fue un bug real, detectado la primera vez que
+se reprodujo en un navegador un video del pipeline **real** (no el simulado) — commit `eeae94a`,
+*"encode annotated video as H.264, not MPEG-4 Part 2"* (§3, Fase 6).
 
 ### 6.1.6 Naturaleza del pipeline
 
 MediaPipe Pose es un detector pre-entrenado usado tal cual; **todo lo que hay aguas abajo**
 —ángulos, máquina de estados, umbrales, puntuación— son **reglas deterministas**, ajustadas por
 constantes, no aprendidas. No hay conjunto de entrenamiento ni cifra de *accuracy* / *precision* /
-*recall*: la pregunta de fiabilidad que sí tiene sentido (contar bien las repeticiones sobre vídeo
+*recall*: la pregunta de fiabilidad que sí tiene sentido (contar bien las repeticiones sobre video
 real) se plantea en §4 (RNF-4) y se evalúa en §7. El campo `algorithm_version` del resultado es la
 cadena literal `"squat-rules-v1"` y `exercise_type` es `"squat"`.
 
@@ -179,13 +179,13 @@ payloads con uno: construye sus respuestas como diccionarios conforme a ese mism
 diseño se detalla en el §5. El flujo de un análisis, de principio a fin:
 
 1. **`POST /v1/attempts`** (multipart: `video`, `exercise_type`) → el backend valida la subida
-   (`backend/app/services/validation.py`): extensión `.mp4`/`.mov`, ≤ 100 MB, códec de vídeo
+   (`backend/app/services/validation.py`): extensión `.mp4`/`.mov`, ≤ 100 MB, códec de video
    H.264 y duración ≤ 60 s. La duración y el códec se comprueban con **PyAV** leyendo los
-   metadatos del contenedor, no lanzando `ffprobe`. Si pasa, guarda el vídeo original a través
+   metadatos del contenedor, no lanzando `ffprobe`. Si pasa, guarda el video original a través
    de la interfaz `Storage`, lo envía a `cv-service` y crea la fila `Attempt` en estado `queued`
    con el identificador de trabajo que `cv-service` devuelve.
 2. **Backend → `cv-service` `POST /v1/jobs`** (`backend/app/services/cv_client.py`): multipart con
-   el vídeo más el campo `exercise_type` y `callback_url`, con la cabecera `X-API-Key` (clave
+   el video más el campo `exercise_type` y `callback_url`, con la cabecera `X-API-Key` (clave
    interna, nunca expuesta al navegador).
 3. **`cv-service` procesa el trabajo de forma asíncrona con `BackgroundTasks` de FastAPI**
    (`cv-service/main.py`, `cv-service/jobs.py`) — **sin cola de tareas**; el estado vive en un
@@ -230,9 +230,10 @@ ventana de retención (`expires_at`, 30 días); se nombra aquí, su diseño es e
   - *Sin cola de tareas* (Celery/RQ/Arq): `BackgroundTasks` más el reconciliador por *polling*
     cubren el MVP de una sola máquina; una cola es peso operativo que el objetivo de *hosting*
     gratuito no puede permitirse.
-  - *Sin almacenamiento de objetos* (S3/GCS): los vídeos originales van a disco local detrás de la
+  - *Sin almacenamiento de objetos* (S3/GCS): los videos originales van a disco local detrás de la
     interfaz `Storage` (`backend/app/services/storage.py`, un `Protocol` cuya única implementación
-    real es `LocalFilesystemStorage`); intercambiable más adelante sin tocar a quien la usa.
+    real es `LocalFilesystemStorage`); intercambiable más adelante sin tocar a quien la usa (el
+    diseño de almacenamiento y retención es el del §5).
   - *Sin capa de caché* (Redis): la propuesta original asumía una; nada en la carga real la
     necesita.
   - *Los "consejos" son estáticos*: `frontend/src/lib/form-error-messages.ts` es un
@@ -258,7 +259,9 @@ ventana de retención (`expires_at`, 30 días); se nombra aquí, su diseño es e
   `cv-service` por `fake-cv-service`, y `deploy/Caddyfile` (`reverse_proxy` al backend con TLS
   automático) para producción.
 - **Estrategia de *hosting* gratuito** (el detalle completo —aprovisionamiento, CI/CD y plan de
-  contingencia— está en el §12 Anexos): frontend Next.js en Vercel; backend + `cv-service` +
+  contingencia— está en el §12 Anexos). La propuesta previa al código nombraba genéricamente
+  «servicios AWS»; el despliegue real no usa AWS, sino *hosting* gratuito repartido: frontend
+  Next.js en Vercel; backend + `cv-service` +
   PostgreSQL en una única máquina virtual siempre gratuita
   (objetivo: Oracle Cloud Ampere A1; el *fallback* actualmente en producción es una GCP
   `e2-micro`, más pequeña, que corre `fake-cv-service` con un aviso visible en la aplicación),

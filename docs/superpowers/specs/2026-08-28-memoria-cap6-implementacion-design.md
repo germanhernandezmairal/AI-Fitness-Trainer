@@ -170,8 +170,10 @@ evaluated in §7. `algorithm_version` in the result payload is the literal strin
 
 ### 2.1 Contrato e integración entre servicios
 
-The internal contract lives in one module, validated by **both** sides
-(`backend/app/schemas/contract.py`; the cv-service has its own equivalent). Result flow:
+The internal contract lives in one module on the backend side
+(`backend/app/schemas/contract.py`); the backend validates it in **both** directions (the sync
+`POST /v1/jobs` response and the webhook body). The cv-service has no schema module of its own — it
+builds its responses as dicts that conform to that same contract by construction. Result flow:
 
 1. `POST /v1/attempts` (multipart: `video`, `exercise_type`) → backend validates
    (`backend/app/services/validation.py`: extension `.mp4`/`.mov`, ≤100 MB, H.264 only, ≤60 s,
