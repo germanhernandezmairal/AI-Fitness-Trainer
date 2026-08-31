@@ -164,3 +164,43 @@ constantes, no aprendidas. No hay conjunto de entrenamiento ni cifra de *accurac
 *recall*: la pregunta de fiabilidad que sí tiene sentido (contar bien las repeticiones sobre vídeo
 real) se plantea en §4 (RNF-4) y se evalúa en §7. El campo `algorithm_version` del resultado es la
 cadena literal `"squat-rules-v1"` y `exercise_type` es `"squat"`.
+
+## 6.2 Aplicación web
+
+### 6.2.1 Contrato e integración entre servicios
+
+El contrato interno entre el backend y `cv-service` vive en un único módulo de esquemas
+(`backend/app/schemas/contract.py`; `cv-service` tiene su equivalente) y lo validan **los dos
+lados**. El flujo de un análisis, de principio a fin:
+
+1. **`POST /v1/attempts`** (multipart: `video`, `exercise_type`) → el backend valida la subida
+   (`backend/app/services/validation.py`): extensión `.mp4`/`.mov`, ≤ 100 MB, códec de vídeo
+   H.264 y duración ≤ 60 s. La duración y el códec se comprueban con **PyAV** leyendo los
+   metadatos del contenedor, no lanzando `ffprobe`. Si pasa, guarda el vídeo original a través
+   de la interfaz `Storage`, lo envía a `cv-service` y crea la fila `Attempt` en estado `queued`
+   con el identificador de trabajo que `cv-service` devuelve.
+2. **Backend → `cv-service` `POST /v1/jobs`** (`backend/app/services/cv_client.py`): multipart con
+   el vídeo más el campo `exercise_type` y `callback_url`, con la cabecera `X-API-Key` (clave
+   interna, nunca expuesta al navegador).
+3. **`cv-service` procesa el trabajo de forma asíncrona con `BackgroundTasks` de FastAPI**
+   (`cv-service/main.py`, `cv-service/jobs.py`) — **sin cola de tareas**; el estado vive en un
+   diccionario en memoria del proceso y se pierde si se reinicia, lo cual es aceptable
+   precisamente por el paso 5.
+4. Al terminar, `cv-service` hace `POST` del resultado al webhook del backend
+   (`/v1/cv-callback/{attempt_id}`) con una **firma HMAC-SHA256** sobre `timestamp + "." + body`,
+   en cabeceras `X-CV-Signature` / `X-CV-Timestamp`; el backend rechaza cualquier firma que no
+   cuadre o cuyo timestamp caiga fuera de una ventana de 300 s. El *porqué* del diseño de la firma
+   está en el §5; aquí solo se nombra como parte del flujo.
+5. **Reconciliador por *polling*** (`reconcile_stale_attempts`, `backend/app/services/jobs.py`,
+   APScheduler cada 30 s): cualquier intento que siga no-terminal 30 s después de crearse se
+   consulta directamente a `cv-service` (`GET /v1/jobs/{id}`). Este es el mecanismo de respaldo
+   real cuando un webhook se pierde — **el webhook es una optimización, no la fuente de verdad**.
+6. **Aplicación exactamente-una-vez:** tanto el webhook como el reconciliador llaman a
+   `apply_job_status` (`backend/app/services/attempts.py`), que hace `SELECT … FOR UPDATE` sobre el
+   intento y sale sin hacer nada si ya está en estado terminal — así, un resultado entregado dos
+   veces, o por ambas vías, se aplica una sola vez. Al aplicarlo, la `annotated_video_url` que
+   devuelve `cv-service` se reescribe a la ruta *proxy* autenticada del backend **antes** de
+   guardarla (diseño en el §5).
+
+Una tarea programada aparte (`purge_expired_attempts`, cada 6 h) borra los intentos que superan su
+ventana de retención (`expires_at`, 30 días); se nombra aquí, su diseño es el del §5.
