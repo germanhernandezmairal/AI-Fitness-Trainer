@@ -57,3 +57,30 @@ cadera→hombro y la vertical de la imagen; 0° = torso perfectamente erguido. S
 `calculate_angle` con un punto sintético justo encima de la cadera, en vez de repetir el cálculo a
 mano. Es **solo la magnitud** de la inclinación —no distingue adelante de atrás—; esa distinción la
 resuelve `is_excessive_forward_lean` (§6.1.4). Solo se usa ahí.
+
+### 6.1.3 Segmentación en repeticiones
+
+La secuencia de ángulos de rodilla fotograma a fotograma se agrupa en repeticiones completas con
+una **máquina de estados** sencilla (`segment_reps`). En el código son dos estados: *de pie* y
+*dentro de una repetición* (la variable pasa a `"descending"` al abrir la rep y no vuelve a
+cambiar hasta cerrarla).
+
+```mermaid
+stateDiagram-v2
+    [*] --> DePie
+    DePie --> EnRepeticion: ángulo &lt; 160° (STANDING_THRESHOLD)<br/>abre la rep: guarda el fotograma inicial<br/>y los landmarks (cadera, rodilla, tobillo, hombro)
+    EnRepeticion --> EnRepeticion: ángulo &lt; mínimo actual<br/>actualiza el ángulo mínimo y los landmarks de ese fotograma
+    EnRepeticion --> DePie: ángulo ≥ 160°<br/>cierra la rep y la añade (build_rep)
+    EnRepeticion --> [*]: el vídeo termina dentro de una rep<br/>la rep se descarta, no se cuenta
+```
+
+- El umbral `STANDING_THRESHOLD = 160°` separa "de pie" de "en movimiento".
+- Mientras dura la repetición se guarda el **ángulo mínimo** alcanzado y las coordenadas de los
+  cuatro landmarks *en ese fotograma concreto* —se necesitan para evaluar `excessive_forward_lean`
+  justo en el punto más bajo de la sentadilla, no en un fotograma cualquiera (§6.1.4)—.
+- Una repetición que empieza pero nunca vuelve a "de pie" (vídeo cortado a mitad de rep) se
+  **descarta**, no se cuenta.
+
+Los fotogramas por segundo (`fps`) se leen de OpenCV (`CAP_PROP_FPS`, con 30 por defecto si el
+contenedor no lo informa); los tiempos de inicio y fin de cada repetición son `nº de fotograma /
+fps`, redondeados a dos decimales.
