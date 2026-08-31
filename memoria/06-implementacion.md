@@ -84,3 +84,83 @@ stateDiagram-v2
 Los fotogramas por segundo (`fps`) se leen de OpenCV (`CAP_PROP_FPS`, con 30 por defecto si el
 contenedor no lo informa); los tiempos de inicio y fin de cada repetición son `nº de fotograma /
 fps`, redondeados a dos decimales.
+
+### 6.1.4 Puntuación y errores de forma
+
+La puntuación **por repetición** (`score_from_angle`) es una curva **de un solo lado**: penaliza
+quedarse corto de profundidad, nunca pasarse.
+
+$$\text{score}(a_{\min}) = \begin{cases} 100 & a_{\min} \le \text{GOOD\_DEPTH\_ANGLE\_DEG} \\[6pt] \max\!\big(0,\ \operatorname{round}\!\big(100 - (a_{\min} - \text{GOOD\_DEPTH\_ANGLE\_DEG}) \cdot \text{PENALTY\_PER\_DEGREE}\big)\big) & \text{en otro caso} \end{cases}$$
+
+Con `GOOD_DEPTH_ANGLE_DEG = 100°` y `PENALTY_PER_DEGREE = 3`, bajar **más** del umbral (mayor
+flexión, sentadilla más profunda) no resta nunca; solo resta no llegar. El razonamiento, citado en
+`GLOSARIO.md`: **Schoenfeld (2010)**, *Squatting Kinematics and Kinetics and Their Application to
+Exercise Performance*, y la posición de la **NSCA** (*Considerations for Squat Depth*) de que «la
+evidencia científica no sostiene que la sentadilla completa exponga la rodilla a fuerzas de
+compresión dañinas», en contra del mito de que «más profundo es más riesgoso». (Antes existía una
+banda de dos límites, `GOOD_DEPTH_MIN`/`GOOD_DEPTH_MAX` = 70°–100°, que también penalizaba pasarse
+de profundo; se colapsó a este único umbral.)
+
+La puntuación **global** (`overall_score`) es la media de las puntuaciones por repetición,
+redondeada; 0 si no se segmentó ninguna repetición.
+
+Los **códigos de error de forma** por repetición (`build_rep`) salen del catálogo cerrado
+`FormErrorCode` (`backend/app/schemas/contract.py`), que contiene exactamente `knee_valgus`,
+`insufficient_depth` y `excessive_forward_lean`:
+
+- **`insufficient_depth`** — `ángulo_mínimo > GOOD_DEPTH_ANGLE_DEG`.
+- **`excessive_forward_lean`** — se evalúa en el fotograma del ángulo mínimo mediante
+  `is_excessive_forward_lean(cadera, rodilla, tobillo, hombro)`, que solo marca el error si se
+  cumplen **las tres** condiciones: (1) los vectores cadera→hombro y tobillo→rodilla miden al menos
+  `MIN_TORSO_VECTOR_NORM_PX = 1 px` (si no, los landmarks están demasiado juntos y su dirección es
+  ruido de seguimiento de sub-píxel: no se marca nada, en vez de adivinar); (2) el hombro se
+  desplaza (respecto a la cadera) hacia el mismo lado horizontal en el que la rodilla queda por
+  delante del tobillo —esa relación rodilla-tobillo define "adelante" de forma independiente de
+  hacia dónde mire la cámara, y una inclinación hacia atrás no cuenta—; (3) la magnitud de la
+  inclinación de torso (`torso_lean_from_vertical`) supera `EXCESSIVE_LEAN_DEG = 45°`. El umbral de
+  45° es un **punto de partida heurístico**, no una cifra de la literatura (así lo dice
+  `GLOSARIO.md`). *Historia:* la primera versión solo comprobaba la magnitud y no distinguía
+  adelante de atrás, con lo que una inclinación hacia **atrás** se etiquetaba igual como
+  `excessive_forward_lean`; una revisión de código lo detectó el 20/08/2026
+  (`docs/2026-08-20-alejandro-cv-form-error-detection-followup-message.md`) y el commit `a5ad6b8`
+  (integrado en `main` el 31/08/2026) lo hizo direccional y añadió el guardia de norma mínima.
+  *Limitación documentada* (`GLOSARIO.md`, no es un bug): una sentadilla muy *hip-dominant* / de
+  barra baja puede inclinar el torso hacia adelante sin que la rodilla avance sobre el tobillo —las
+  dos señales no coinciden y el error no se marca aunque visualmente la inclinación sea excesiva—.
+- **`knee_valgus`** — está en el catálogo y en el mapa de etiquetas del frontend
+  (`frontend/src/lib/form-error-messages.ts`), pero **no se evalúa, por diseño**: es un defecto del
+  plano frontal y el pipeline asume una única cámara lateral (§4 CU-5, §5). Nunca se añade a
+  `errors`: no hay lógica que lo evalúe.
+
+| Constante | Valor | Papel | Fuente |
+|---|---|---|---|
+| `STANDING_THRESHOLD` | 160° | Ángulo de rodilla por encima del cual se considera "de pie" (abre/cierra rep). | Heurística |
+| `GOOD_DEPTH_ANGLE_DEG` | 100° | Umbral de "buena profundidad": por debajo o igual no se penaliza ni se marca `insufficient_depth`. | Schoenfeld 2010 / NSCA |
+| `PENALTY_PER_DEGREE` | 3 | Puntos restados por cada grado por encima de `GOOD_DEPTH_ANGLE_DEG`. | Heurística |
+| `EXCESSIVE_LEAN_DEG` | 45° | Magnitud de inclinación de torso por encima de la cual se marca `excessive_forward_lean`. | Punto de partida heurístico |
+| `MIN_TORSO_VECTOR_NORM_PX` | 1.0 | Norma mínima (px) de un vector de landmarks para fiarse de su dirección. | Guardia de ruido de seguimiento |
+| `ANNOTATED_VIDEO_FOURCC` | `avc1` | Códec del vídeo anotado (H.264). | Compatibilidad con `<video>` (§6.1.5) |
+
+### 6.1.5 Vídeo anotado
+
+En cada fotograma con pose detectada se dibuja el esqueleto (`mp_drawing.draw_landmarks` con
+`POSE_CONNECTIONS`) y el ángulo de rodilla entero como texto junto a la rodilla (`cv2.putText`,
+`"<n> deg"`). **Todos** los fotogramas —anotados o no— se escriben al vídeo de salida
+(`writer.write(frame)`).
+
+El códec es `ANNOTATED_VIDEO_FOURCC = cv2.VideoWriter_fourcc(*"avc1")`. Merece explicar **por qué
+no es el `mp4v` obvio**: el elemento `<video>` de los navegadores solo decodifica H.264/AVC,
+VP8/VP9 o AV1, no MPEG-4 Part 2, así que un archivo `mp4v` se reproduce como un fotograma en blanco
+en la página de resultados. `avc1` produce H.264 real con este build de OpenCV, sin necesitar un
+post-proceso con `ffmpeg`. Fue un bug real, detectado la primera vez que se reprodujo en un
+navegador un vídeo del pipeline **real** (no del falso) — commit `eeae94a`, *"encode annotated
+video as H.264, not MPEG-4 Part 2"* (véase también la fase correspondiente del §3).
+
+### 6.1.6 Naturaleza del pipeline
+
+MediaPipe Pose es un detector pre-entrenado usado tal cual; **todo lo que hay aguas abajo**
+—ángulos, máquina de estados, umbrales, puntuación— son **reglas deterministas**, ajustadas por
+constantes, no aprendidas. No hay conjunto de entrenamiento ni cifra de *accuracy* / *precision* /
+*recall*: la pregunta de fiabilidad que sí tiene sentido (contar bien las repeticiones sobre vídeo
+real) se plantea en §4 (RNF-4) y se evalúa en §7. El campo `algorithm_version` del resultado es la
+cadena literal `"squat-rules-v1"` y `exercise_type` es `"squat"`.
