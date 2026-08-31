@@ -21,9 +21,10 @@ instancia `Pose` por trabajo, con `min_detection_confidence=0.5` y `min_tracking
 
 Por cada fotograma: OpenCV (`cv2.VideoCapture`) lo lee en formato BGR, se convierte a RGB
 (`cv2.cvtColor(..., COLOR_BGR2RGB)`) y se pasa a `pose.process(...)`. Los fotogramas en los que
-MediaPipe no detecta a ninguna persona simplemente se saltan: no se cuentan ni se les dibuja
-esqueleto. Si **ningún** fotograma del vídeo produce una pose, el trabajo termina en fallo con el
-código `no_pose_detected` (excepción `NoPoseDetectedError`).
+MediaPipe no detecta a ninguna persona se ignoran **para el análisis** —no se cuentan ni se les
+dibuja esqueleto—, pero se escriben igual al vídeo de salida, sin anotar (§6.1.5). Si **ningún**
+fotograma del vídeo produce una pose, el trabajo termina en fallo con el código `no_pose_detected`
+(excepción `NoPoseDetectedError`).
 
 De todos los puntos que devuelve MediaPipe se usan **solo cuatro**, todos del lado derecho del
 cuerpo: cadera (`RIGHT_HIP`), rodilla (`RIGHT_KNEE`), tobillo (`RIGHT_ANKLE`) y hombro
@@ -47,10 +48,10 @@ de `arccos` para absorber el error de redondeo en coma flotante, y el resultado 
 
 Conviene fijar la **convención**: este ángulo interior cadera-rodilla-tobillo vale ~180° con la
 pierna extendida (de pie) y **disminuye** a medida que la rodilla se flexiona. Es, por tanto,
-aproximadamente el *complementario* del "ángulo de flexión" que se usa en la literatura de
-biomecánica (que mide desde la extensión completa): ~90° de flexión de rodilla equivalen aquí a un
-ángulo interior de ~90–100°. Esta convención es la que hay que tener presente al leer los umbrales
-de §6.1.4.
+aproximadamente el *suplementario* del "ángulo de flexión" que se usa en la literatura de
+biomecánica (que mide desde la extensión completa): ángulo interior ≈ 180° − flexión, de modo que
+~90° de flexión de rodilla equivalen aquí a un ángulo interior de ~90–100°. Esta convención es la
+que hay que tener presente al leer los umbrales de §6.1.4.
 
 La **inclinación del torso** (`torso_lean_from_vertical`) es el ángulo entre el vector
 cadera→hombro y la vertical de la imagen; 0° = torso perfectamente erguido. Se implementa reusando
@@ -62,8 +63,8 @@ resuelve `is_excessive_forward_lean` (§6.1.4). Solo se usa ahí.
 
 La secuencia de ángulos de rodilla fotograma a fotograma se agrupa en repeticiones completas con
 una **máquina de estados** sencilla (`segment_reps`). En el código son dos estados: *de pie* y
-*dentro de una repetición* (la variable pasa a `"descending"` al abrir la rep y no vuelve a
-cambiar hasta cerrarla).
+*dentro de una repetición* (al abrir la rep se pasa a este segundo estado y no se vuelve a cambiar
+hasta cerrarla).
 
 ```mermaid
 stateDiagram-v2
@@ -123,7 +124,7 @@ Los **códigos de error de forma** por repetición (`build_rep`) salen del catá
   adelante de atrás, con lo que una inclinación hacia **atrás** se etiquetaba igual como
   `excessive_forward_lean`; una revisión de código lo detectó el 20/08/2026
   (`docs/2026-08-20-alejandro-cv-form-error-detection-followup-message.md`) y el commit `a5ad6b8`
-  (integrado en `main` el 31/08/2026) lo hizo direccional y añadió el guardia de norma mínima.
+  (integrado en `main` el 31/08/2026) lo hizo direccional y añadió la comprobación de norma mínima.
   *Limitación documentada* (`GLOSARIO.md`, no es un bug): una sentadilla muy *hip-dominant* / de
   barra baja puede inclinar el torso hacia adelante sin que la rodilla avance sobre el tobillo —las
   dos señales no coinciden y el error no se marca aunque visualmente la inclinación sea excesiva—.
@@ -138,7 +139,7 @@ Los **códigos de error de forma** por repetición (`build_rep`) salen del catá
 | `GOOD_DEPTH_ANGLE_DEG` | 100° | Umbral de "buena profundidad": por debajo o igual no se penaliza ni se marca `insufficient_depth`. | Schoenfeld 2010 / NSCA |
 | `PENALTY_PER_DEGREE` | 3 | Puntos restados por cada grado por encima de `GOOD_DEPTH_ANGLE_DEG`. | Heurística |
 | `EXCESSIVE_LEAN_DEG` | 45° | Magnitud de inclinación de torso por encima de la cual se marca `excessive_forward_lean`. | Punto de partida heurístico |
-| `MIN_TORSO_VECTOR_NORM_PX` | 1.0 | Norma mínima (px) de un vector de landmarks para fiarse de su dirección. | Guardia de ruido de seguimiento |
+| `MIN_TORSO_VECTOR_NORM_PX` | 1.0 px | Norma mínima de un vector de landmarks para fiarse de su dirección. | Salvaguarda frente al ruido de seguimiento |
 | `ANNOTATED_VIDEO_FOURCC` | `avc1` | Códec del vídeo anotado (H.264). | Compatibilidad con `<video>` (§6.1.5) |
 
 ### 6.1.5 Vídeo anotado
@@ -198,8 +199,8 @@ diseño se detalla en el §5. El flujo de un análisis, de principio a fin:
 5. **Reconciliador por *polling*** (`reconcile_stale_attempts`, `backend/app/services/jobs.py`,
    APScheduler cada 30 s): todo intento que tenga un `cv_job_id` asignado y siga no terminal
    30 s después de crearse se consulta directamente a `cv-service` (`GET /v1/jobs/{id}`). Este es
-   el mecanismo de respaldo
-   real cuando un webhook se pierde — **el webhook es una optimización, no la fuente de verdad**.
+   el mecanismo de respaldo real cuando un webhook se pierde — **el webhook es una optimización, no
+   la fuente de verdad**.
 6. **Aplicación exactamente una vez:** tanto el webhook como el reconciliador llaman a
    `apply_job_status` (`backend/app/services/attempts.py`), que hace `SELECT … FOR UPDATE` sobre el
    intento y sale sin hacer nada si ya está en estado terminal — así, un resultado entregado dos
@@ -256,9 +257,9 @@ ventana de retención (`expires_at`, 30 días); se nombra aquí, su diseño es e
   con la variante de superposición `deploy/docker-compose.prod.fake-cv.yml` que sustituye
   `cv-service` por `fake-cv-service`, y `deploy/Caddyfile` (`reverse_proxy` al backend con TLS
   automático) para producción.
-- **Estrategia de *hosting* gratuito** (el detalle completo —aprovisionamiento, CI/CD, refresco de
-  DNS, copias de seguridad, verificación en vivo— está en el §12 Anexos): frontend Next.js en
-  Vercel; backend + `cv-service` + PostgreSQL en una única máquina virtual siempre-gratuita
+- **Estrategia de *hosting* gratuito** (el detalle completo —aprovisionamiento, CI/CD y plan de
+  contingencia— está en el §12 Anexos): frontend Next.js en Vercel; backend + `cv-service` +
+  PostgreSQL en una única máquina virtual siempre gratuita
   (objetivo: Oracle Cloud Ampere A1; el *fallback* actualmente en producción es una GCP
   `e2-micro`, más pequeña, que corre `fake-cv-service` con un aviso visible en la aplicación),
   con Caddy dando TLS automático detrás de un subdominio DuckDNS. La restricción "tiene que ser
