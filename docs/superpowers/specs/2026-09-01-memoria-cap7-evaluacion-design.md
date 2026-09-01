@@ -108,7 +108,10 @@ pure logic (angle math, state-machine transitions, scoring curve, codec, API aut
 gets a real pytest.** So the 36 tests cover the deterministic core,
 and §7.5 covers what pytest structurally cannot.
 
-### 2.3 Frontend (`frontend/tests/`) — 61 pruebas unitarias (Vitest) + 1 e2e (Playwright)
+### 2.3 Frontend (`frontend/tests/`) — 73 pruebas unitarias (Vitest) + 1 e2e (Playwright)
+
+(73 is what `vitest run` reports — more than a raw `it(`/`test(` grep, which misses parametrized
+cases. Use the runner's number.)
 
 - **Unitarias** (`frontend/tests/unit/`): componentes (`app-shell`, `attempt-result`,
   `attempt-history-list`, `video-upload-form`, `protected-route`), hooks (`use-attempt`,
@@ -134,8 +137,10 @@ una barrera local, no automatizada en CI** — se ejecuta a mano antes de fusion
 `git log` y las revisiones de rama lo respaldan, pero no hay ejecución reproducible en el servidor).
 Esto se retoma como limitación en §7.6.
 
-**Totales a fecha de `<commit>`:** 128 + 36 + 61 = **225 pruebas automatizadas** y **2 pruebas
-extremo a extremo** (una de API en el backend, una de navegador en el frontend).
+**Totales a fecha de `<commit>`:** 128 + 36 + 73 = **237 pruebas automatizadas** y **2 pruebas
+extremo a extremo** (una de API en el backend, una de navegador en el frontend). (Verified by
+running all three suites on 2026-09-01: backend `128 passed`, cv-service `36 passed`, frontend
+`73 passed`.)
 
 ---
 
@@ -266,7 +271,7 @@ consequence:
   (2 OCPU compartidos con backend y Postgres) → RNF-2/RNF-3 no se trasladan; los objetivos
   propuestos son de partida, no medidos sobre producción.
 - **CI no ejecuta la suite** → las regresiones sólo las detecta la disciplina local; no hay una
-  garantía reproducible en el servidor de que `main` pase las 225 pruebas en cualquier momento.
+  garantía reproducible en el servidor de que `main` pase las 237 pruebas en cualquier momento.
 - **Evaluación del pipeline exploratoria** (§7.5): N pequeño, sin verdad-terreno, sin protocolo.
 - **Accesibilidad razonada, no auditada** → conformidad AA argumentada con matemática de contraste,
   sin Lighthouse/axe ni prueba con lector de pantalla.
