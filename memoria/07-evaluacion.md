@@ -57,7 +57,7 @@ La suite se agrupa por área de preocupación, sobre los ficheros de prueba real
 | Integración con el cv-service | `test_cv_client.py`, `test_webhook.py` | cliente del cv-service; recepción idempotente del webhook firmado |
 | Trabajos en segundo plano | `test_jobs.py` | reconciliador de sondeo, purga por retención |
 | Infraestructura | `test_health.py`, `test_cors.py`, `test_models.py`, `test_storage.py`, `test_validation.py` | *health check*, CORS, modelos ORM, almacenamiento local, validación de ficheros |
-| Extremo a extremo (API) | `test_end_to_end.py` | `test_full_lifecycle_upload_webhook_read_delete`: subida → webhook → lectura → borrado, contra `fake-cv-service` |
+| Extremo a extremo (API) | `test_end_to_end.py` | ciclo de vida completo del intento: subida → webhook → lectura → borrado, contra `fake-cv-service` |
 
 Se ejecuta con `cd backend && uv run --extra dev pytest` (el extra `dev` instala pytest, respx y
 ruff).
@@ -150,7 +150,7 @@ sección las reproduce como resultado de aquella medición, no las recalcula.
 | RNF-4 · Precisión del modelo | No aplica una métrica de *accuracy*: el pipeline es un sistema de reglas sobre umbrales de ángulo articular (§6.1), no un clasificador entrenado. El objetivo de §4 —fiabilidad de detección sobre un conjunto de vídeos de referencia— exigiría construir y etiquetar ese conjunto | **Queda sin cuantificar**: el conjunto de referencia no se construyó (se asume abiertamente en §7.6). La única evaluación disponible es la observación cualitativa sobre vídeo real de §7.5 |
 | RNF-5 · Seguridad | `test_signing.py` (firma y verificación HMAC-SHA256 en ambos sentidos: cuerpo manipulado, secreto erróneo, *timestamp* caducado o futuro); `test_webhook.py` (el backend rechaza webhooks sin firma o con firma inválida, verifica antes de buscar el intento y es idempotente); `test_register_login.py` (el caso `test_refresh_detects_reuse…`: revocación en bloque de toda la familia de *refresh tokens* ante detección de reuso); `test_cv_client.py` (la cabecera `X-API-Key` viaja en el envío del job, el borrado y el proxy de vídeo) | **Cumplido**, con prueba automatizada para cada mecanismo |
 | RNF-6 · Disponibilidad | La aplicación está en producción sobre el fallback gratuito de GCP (`fake-cv-service`), con TLS real de Let's Encrypt y CI de despliegue autosostenido | **Sin SLA medido**: no hay monitorización de *uptime*. El objetivo de disponibilidad de §4 queda sin verificar |
-| RNF-7 · Accesibilidad (WCAG 2.1 AA) | El rediseño del frontend de 2026-08-25 recalculó **todos** los ratios de contraste con la fórmula de luminancia relativa (no a ojo) y una revisión final los volvió a comprobar contra las superficies compuestas reales, corrigiendo tres pares de color que fallaban AA (constatado en el rediseño del frontend de 2026-08-25 y en la revisión final de esa rama); los componentes proceden de shadcn/ui, accesibles por defecto | **Conformidad AA razonada, no auditada**: no se ejecutó Lighthouse ni axe, ni se hizo una pasada con lector de pantalla |
+| RNF-7 · Accesibilidad (WCAG 2.1 AA) | El rediseño del frontend de 2026-08-25 recalculó **todos** los ratios de contraste con la fórmula de luminancia relativa (no a ojo) y una revisión final los volvió a comprobar contra las superficies compuestas reales, corrigiendo tres pares de color que fallaban AA (constatado en la revisión final de esa rama); los componentes proceden de shadcn/ui, accesibles por defecto | **Conformidad AA razonada, no auditada**: no se ejecutó Lighthouse ni axe, ni se hizo una pasada con lector de pantalla |
 
 **Caveat transversal.** Los benchmarks de RNF-2 y RNF-3 se midieron en una única máquina de
 desarrollo de 16 núcleos, no en el destino de despliegue real (2 OCPU compartidos con el backend y
@@ -239,7 +239,7 @@ según el reparto de trabajo entre pistas (§3):
 
 De estos, el problema de dirección de `excessive_forward_lean` ya estaba recogido —por otra vía— en
 el mensaje de seguimiento a Alejandro del 20/08/2026, junto con el riesgo de que *landmarks* casi
-coincidentes disparen el error por ruido de sub-píxel; ese disparo por ruido se mitigó después en
+coincidentes disparen el error por ruido de sub-píxel; ese disparo por ruido se mitigó en
 parte con la salvaguarda `MIN_TORSO_VECTOR_NORM_PX` del *commit* `a5ad6b8` (fusionado a `main` el
 31/08/2026, véase §6.1.4), pero la limitación de plano de cámara del punto 4 se mantiene con
 independencia de ello. Los puntos 1, 2 y 3, y el encuadre concreto
