@@ -1,19 +1,19 @@
+# 7. Evaluación
+
 <!--
 Fuente: docs/superpowers/specs/2026-09-01-memoria-cap7-evaluacion-design.md (diseño aprobado).
 Capítulo retrospectivo: documenta la evaluación realmente hecha (suites automatizadas, dos pruebas
 extremo a extremo, pruebas manuales del pipeline sobre vídeo real, y el benchmark del 15/08/2026),
-trazada a los requisitos del capítulo 4. Recuentos de pruebas verificados ejecutando las suites el
+trazada a los requisitos del §4. Recuentos de pruebas verificados ejecutando las suites el
 01/09/2026. Números de latencia/concurrencia citados de §4 (RNF-2/RNF-3), no recalculados aquí.
 -->
-
-# 7. Evaluación
 
 ## 7.1 Estrategia de evaluación
 
 El sistema tiene **dos objetos de evaluación de naturaleza distinta**.
 
 El **primero es la aplicación web**. Su comportamiento está definido por los requisitos del
-capítulo 4 (CU-1…CU-7 y RNF-1…RNF-7), así que se evalúa **verificándola contra esos requisitos**:
+§4 (CU-1…CU-7 y RNF-1…RNF-7), así que se evalúa **verificándola contra esos requisitos**:
 pruebas automatizadas por componente, dos pruebas extremo a extremo y comprobaciones manuales a
 través de la interfaz en ejecución.
 
@@ -24,7 +24,7 @@ conjunto de entrenamiento, no hay conjunto de vídeos etiquetados y no aplica un
 sobre vídeo de sentadilla real** y registrando dónde acierta y dónde falla (§7.5).
 
 **Metodología.** Cada funcionalidad y cada capítulo de esta memoria se construyó siguiendo un flujo
-de trabajo dirigido por pruebas (*test-first*); el capítulo 3 lo narra por fases y el historial de
+de trabajo dirigido por pruebas (*test-first*); el §3 lo narra por fases y el historial de
 Git muestra los *commits* de pruebas acompañando o precediendo a los de implementación. Las suites
 automatizadas son el producto duradero de ese proceso, no un añadido posterior.
 
@@ -41,8 +41,8 @@ automatizadas son el producto duradero de ese proceso, no un añadido posterior.
 
 ## 7.2 Pruebas automatizadas
 
-Desglose por componente. Cada recuento se enuncia *a fecha de `d14bd8c`* para que sea falsable: las
-tres suites se ejecutaron el 01/09/2026 con este resultado —backend `128 passed`, cv-service
+Desglose por componente. Cada recuento se enuncia *a fecha de 01/09/2026* para que sea falsable: las
+tres suites se ejecutaron ese día con este resultado —backend `128 passed`, cv-service
 `36 passed`, frontend `73 passed`.
 
 ### 7.2.1 Backend (`backend/tests/`) — 128 pruebas (pytest)
@@ -106,10 +106,10 @@ de `git log` y las revisiones de rama lo respaldan, pero no existe una ejecució
 servidor que garantice que `main` pasa las pruebas en cualquier momento. Se retoma como limitación en
 §7.6.
 
-**Totales (a fecha de `d14bd8c`):** 128 + 36 + 73 = **237 pruebas automatizadas** y **2 pruebas
+**Totales (a fecha de 01/09/2026):** 128 + 36 + 73 = **237 pruebas automatizadas** y **2 pruebas
 extremo a extremo** (una de nivel de API en el backend, `test_full_lifecycle_upload_webhook_read_delete`;
-una de nivel de navegador en el frontend, `full-flow.spec.ts`). Las tres suites se ejecutaron el
-01/09/2026 con este resultado.
+una de nivel de navegador en el frontend, `full-flow.spec.ts`). Las tres suites se ejecutaron ese
+día con este resultado.
 
 ## 7.3 Verificación de requisitos funcionales
 
@@ -144,13 +144,13 @@ sección las reproduce como resultado de aquella medición, no las recalcula.
 
 | RNF | Cómo se verificó | Resultado |
 |---|---|---|
-| RNF-1 · Formatos y tamaño de vídeo | `test_validation.py` (extensiones `.mp4`/`.mov`, códec H.264, tope de 100 MB, duración máxima de 60 s), más los límites de tamaño y duración que el cv-service aplica por su cuenta (`cv-service/main.py`) | **Cumplido**, con prueba automatizada en los dos servicios |
+| RNF-1 · Formatos y tamaño de vídeo | el validador acepta `.mp4` y `.mov` y rechaza otras extensiones; `test_validation.py` cubre la aceptación de `.mp4`, el rechazo por extensión y los límites de códec (H.264), tamaño (100 MB) y duración (60 s), más los límites de tamaño y duración que el cv-service aplica por su cuenta (`cv-service/main.py`) | **Cumplido**, con prueba automatizada en los dos servicios |
 | RNF-2 · Latencia de análisis | `benchmark_latencia.py`, 15/08/2026, sobre `squat.mp4` (~13s) en la máquina de desarrollo (16 núcleos físicos / 22 lógicos); 3 tandas secuenciales | Latencia media **12.4s** (mín. 12.3s, máx. 12.4s), una relación de **~0.95x** la duración del vídeo, dominada por el procesamiento frame a frame de MediaPipe. Extrapolada linealmente a un vídeo de 60s: **~57s** de procesamiento puro. SLA propuesto: **menos de 90s** para un vídeo de 60s (§4 RNF-2). Sin SLA verificado en producción |
 | RNF-3 · Capacidad concurrente | Mismo benchmark, niveles de concurrencia 1/2/3/4, 3 tandas cada uno, misma máquina | La latencia por job se mantuvo prácticamente plana hasta concurrencia 4 (**1.00x-1.06x** contra la línea base de concurrencia 1, máx. **14.9s** en una tanda): MediaPipe/OpenCV liberan el GIL lo suficiente para que los hilos del `BackgroundTask` corran en paralelo de verdad. Objetivo conservador para el destino de despliegue real (2 OCPU compartidos): **2 análisis simultáneos**, no como límite medido y sin confirmar sobre esa máquina (§4 RNF-3) |
 | RNF-4 · Precisión del modelo | No aplica una métrica de *accuracy*: el pipeline es un sistema de reglas sobre umbrales de ángulo articular (§6.1), no un clasificador entrenado. El objetivo de §4 —fiabilidad de detección sobre un conjunto de vídeos de referencia— exigiría construir y etiquetar ese conjunto | **Queda sin cuantificar**: el conjunto de referencia no se construyó (se asume abiertamente en §7.6). La única evaluación disponible es la observación cualitativa sobre vídeo real de §7.5 |
 | RNF-5 · Seguridad | `test_signing.py` (firma y verificación HMAC-SHA256 en ambos sentidos: cuerpo manipulado, secreto erróneo, *timestamp* caducado o futuro); `test_webhook.py` (el backend rechaza webhooks sin firma o con firma inválida, verifica antes de buscar el intento y es idempotente); `test_register_login.py` (el caso `test_refresh_detects_reuse…`: revocación en bloque de toda la familia de *refresh tokens* ante detección de reuso); `test_cv_client.py` (la cabecera `X-API-Key` viaja en el envío del job, el borrado y el proxy de vídeo) | **Cumplido**, con prueba automatizada para cada mecanismo |
 | RNF-6 · Disponibilidad | La aplicación está en producción sobre el fallback gratuito de GCP (`fake-cv-service`), con TLS real de Let's Encrypt y CI de despliegue autosostenido | **Sin SLA medido**: no hay monitorización de *uptime*. El objetivo de disponibilidad de §4 queda sin verificar |
-| RNF-7 · Accesibilidad (WCAG 2.1 AA) | El rediseño del frontend de 2026-08-25 recalculó **todos** los ratios de contraste con la fórmula de luminancia relativa (no a ojo) y una revisión final los volvió a comprobar contra las superficies compuestas reales, corrigiendo tres pares de color que fallaban AA (spec de rediseño del frontend, ruta docs/superpowers/specs/2026-08-25-frontend-redesign-design.md); los componentes proceden de shadcn/ui, accesibles por defecto | **Conformidad AA razonada, no auditada**: no se ejecutó Lighthouse ni axe, ni se hizo una pasada con lector de pantalla |
+| RNF-7 · Accesibilidad (WCAG 2.1 AA) | El rediseño del frontend de 2026-08-25 recalculó **todos** los ratios de contraste con la fórmula de luminancia relativa (no a ojo) y una revisión final los volvió a comprobar contra las superficies compuestas reales, corrigiendo tres pares de color que fallaban AA (constatado en el rediseño del frontend de 2026-08-25 y en la revisión final de esa rama); los componentes proceden de shadcn/ui, accesibles por defecto | **Conformidad AA razonada, no auditada**: no se ejecutó Lighthouse ni axe, ni se hizo una pasada con lector de pantalla |
 
 **Caveat transversal.** Los benchmarks de RNF-2 y RNF-3 se midieron en una única máquina de
 desarrollo de 16 núcleos, no en el destino de despliegue real (2 OCPU compartidos con el backend y
@@ -180,8 +180,8 @@ repeticiones** del clip. Pero el ángulo mínimo de rodilla de cada repetición 
 Esa contradicción —una sentadilla bien ejecutada y bien contada, puntuada como si fuera pésima— es
 lo que sacó a la luz la anomalía de la curva de puntuación: el *score* penalizaba bajar **más**
 profundo que la banda ideal. Alejandro la corrigió después colapsando la banda de dos límites en un
-único umbral `GOOD_DEPTH_ANGLE_DEG` (*commit* `aefbc6f`; el mensaje de ese *commit* cita
-explícitamente el caso «un *squat* real, limpio y de 39–44° que puntuaba 7–22/100»), cambio ya
+único umbral `GOOD_DEPTH_ANGLE_DEG` (*commit* `aefbc6f`; `cv-service/GLOSARIO.md` recoge
+explícitamente el caso de una sentadilla real, limpia y de 39–44° que puntuaba 7–22/100), cambio ya
 documentado en §6.1.4.
 
 `squat.mp4` es un clip de archivo con marca de agua de Getty, apto solo para las pruebas
@@ -239,7 +239,10 @@ según el reparto de trabajo entre pistas (§3):
 
 De estos, el problema de dirección de `excessive_forward_lean` ya estaba recogido —por otra vía— en
 el mensaje de seguimiento a Alejandro del 20/08/2026, junto con el riesgo de que *landmarks* casi
-coincidentes disparen el error por ruido de sub-píxel. Los puntos 1, 2 y 3, y el encuadre concreto
+coincidentes disparen el error por ruido de sub-píxel; ese disparo por ruido se mitigó después en
+parte con la salvaguarda `MIN_TORSO_VECTOR_NORM_PX` del *commit* `a5ad6b8` (fusionado a `main` el
+31/08/2026, véase §6.1.4), pero la limitación de plano de cámara del punto 4 se mantiene con
+independencia de ello. Los puntos 1, 2 y 3, y el encuadre concreto
 del punto 4 (cámara frontal), provienen de las notas de esta sesión de prueba y quedan como material
 para la siguiente comunicación con Alejandro.
 
@@ -251,3 +254,34 @@ exploratoria**: no hubo protocolo, ni conjunto de referencia, ni repetición sis
 colocación, la fragilidad ante cámaras no laterales— pero **no produce una cifra de fiabilidad** del
 conteo de repeticiones ni de la detección de errores de forma. Esa limitación, y su consecuencia
 sobre el objetivo de RNF-4, se recogen en §7.6.
+
+## 7.6 Limitaciones y amenazas a la validez
+
+La evaluación de este capítulo tiene límites conocidos. Se enumeran aquí, cada uno con su
+consecuencia, en lugar de dejarlos implícitos:
+
+- **Sin conjunto de vídeos etiquetados del pipeline** → el objetivo de fiabilidad de RNF-4 (§7.4)
+  queda sin cuantificar: la fiabilidad del conteo de repeticiones y de la detección de errores de
+  forma no tiene un número, solo la caracterización cualitativa de §7.5.
+- **Un único vídeo de *fixture* para las pruebas extremo a extremo automatizadas** (`squat.mp4`),
+  y el único clip real no marcado es propiedad del usuario. La diversidad de entrada probada de
+  forma reproducible es muy escasa; la variedad real de §7.5 vino de ejecuciones manuales no
+  repetibles.
+- **Benchmarks de una sola máquina** (portátil de desarrollo de 16 núcleos), no del destino de
+  despliegue real (2 OCPU compartidos con el backend y Postgres) → las cifras de RNF-2 y RNF-3
+  (§7.4) no se trasladan directamente; los objetivos propuestos (SLA de menos de 90 s, 2 análisis
+  simultáneos) son valores de partida, no medidos sobre producción.
+- **CI no ejecuta la suite** (§7.2.4) → las regresiones solo las detecta la disciplina local de
+  ejecutar las pruebas antes de fusionar; no hay ninguna garantía reproducible en el servidor de
+  que `main` pase las 237 pruebas en cualquier momento.
+- **La evaluación del pipeline es exploratoria** (§7.5): N pequeño (unos 3 vídeos), sin verdad-terreno
+  y sin protocolo. Sirve para caracterizar modos de fallo, no para dar una cifra de fiabilidad.
+- **Accesibilidad razonada, no auditada** (§7.4 RNF-7) → la conformidad AA se argumenta con la
+  matemática de contraste (luminancia relativa sobre las superficies compuestas reales), pero no se
+  ejecutó Lighthouse ni axe, ni se hizo una prueba con lector de pantalla.
+- **Sin monitorización de producción** (§7.4 RNF-6) → RNF-6 queda sin SLA medido; el *uptime* real
+  del fallback gratuito es desconocido.
+
+Estas limitaciones son coherentes con el alcance del proyecto —un TFG de dos personas, con un MVP
+congelado y un despliegue gratuito— y se recogen aquí explícitamente en lugar de presentar la
+evaluación como más completa de lo que es. Varias de ellas alimentan el §10 (Conclusiones).
