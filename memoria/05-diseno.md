@@ -5,7 +5,7 @@
 > propuesta original de `memoria-ada-outline.md` §5 (que mencionaba Redis, PyTorch y Express —
 > ninguno de los tres existe en el sistema real).
 
-## Arquitectura
+## 5.1 Arquitectura
 
 ```mermaid
 graph TB
@@ -48,7 +48,7 @@ terminar un análisis va firmado con HMAC-SHA256 sobre `timestamp + "." + body`
 `X-CV-Signature`/`X-CV-Timestamp`. El backend rechaza cualquier webhook cuya firma no coincida,
 evitando que un tercero pueda falsificar el resultado de un análisis.
 
-## Diagramas de uso
+## 5.2 Diagramas de uso
 
 Diagrama de casos de uso derivado directamente de los 7 casos de uso funcionales del Capítulo 4
 (`memoria/04-requisitos.md`) — Mermaid no tiene una notación UML de casos de uso nativa, por lo que
@@ -78,7 +78,7 @@ No existe ningún actor adicional (no hay rol de administrador en el sistema rea
 uso fuera de estos 7 — este diagrama visualiza los requisitos del Capítulo 4, no añade alcance
 nuevo.
 
-## Diseño de clases
+## 5.3 Diseño de clases
 
 ```mermaid
 classDiagram
@@ -134,13 +134,13 @@ un campo de texto plano, no una entidad `Exercise` normalizada, ya que hoy solo 
 soportado (sentadilla). Esta es una simplificación deliberada del sistema real, no una omisión de
 este diagrama.
 
-## Diseño de interfaz
+## 5.4 Diseño de interfaz
 
 A diferencia del resto de este capítulo, esta sección no usa wireframes sino **capturas reales de
 las pantallas ya implementadas**, obtenidas ejecutando la aplicación en local. El despliegue real
 se documenta en `deploy/README.md` y queda fuera del alcance de este capítulo.
 
-### Inicio de sesión (CU-2)
+### 5.4.1 Inicio de sesión (CU-2)
 
 ![Figura 5.1: Pantalla de inicio de sesión](figuras/05-01-login.png)
 
@@ -148,14 +148,14 @@ Formulario de email y contraseña. Un fallo de autenticación se comunica como "
 password" — un mensaje deliberadamente distinguible de un error de red o de servidor (ver
 `frontend/src/lib/auth-context.tsx`).
 
-### Registro (CU-1)
+### 5.4.2 Registro (CU-1)
 
 ![Figura 5.2: Pantalla de registro](figuras/05-02-registro.png)
 
 Formulario de alta de cuenta. Al completarse, el backend crea la cuenta y devuelve de inmediato un
 par de tokens (access + refresh) — el usuario queda autenticado sin pasar por login.
 
-### Subida de video (CU-4)
+### 5.4.3 Subida de video (CU-4)
 
 ![Figura 5.3: Pantalla de subida de video](figuras/05-03-subida.png)
 
@@ -164,7 +164,7 @@ Formulario de subida en la página de inicio autenticada. Valida extensión (`.m
 backend revalida extensión, tamaño, códec (solo H.264) y duración (≤60 s) en
 `backend/app/services/validation.py`.
 
-### Resultado de un intento (CU-5)
+### 5.4.4 Resultado de un intento (CU-5)
 
 ![Figura 5.4: Pantalla de resultado de un intento](figuras/05-04-resultado.png)
 
@@ -176,7 +176,7 @@ código, `knee_valgus`, en el contrato (`backend/app/schemas/contract.py`) y en 
 del frontend (`frontend/src/lib/form-error-messages.ts`), pero no se evalúa por diseño: el valgo de
 rodilla es un defecto del plano frontal y el pipeline analiza una única cámara sagital (lateral).
 
-### Historial de intentos (CU-6)
+### 5.4.5 Historial de intentos (CU-6)
 
 ![Figura 5.5: Pantalla de historial de intentos](figuras/05-05-historial.png)
 
@@ -185,11 +185,11 @@ Lista paginada de intentos propios, ordenada por fecha, con una píldora de esta
 página de inicio (`frontend/src/app/page.tsx`, sección "History"), no en una ruta `/attempts`
 separada — no existe una vista de historial standalone.
 
-## Diseño de persistencia de datos
+## 5.5 Diseño de persistencia de datos
 
 **Gestión del esquema:** migraciones Alembic (`backend/alembic/versions/`), cabeza actual en la
 revisión `0002` (`0002_auth.py`, tras `0001_initial.py`) — 4 tablas reales en total (los 3 modelos
-de la sección «Diseño de clases» más la tabla interna de control de versiones de Alembic).
+de la sección «5.3 Diseño de clases» más la tabla interna de control de versiones de Alembic).
 
 **Diseño de borrado (GDPR, CU-7):** `delete_attempt`
 (`backend/app/services/attempts.py`) sigue un orden deliberado, no incidental:

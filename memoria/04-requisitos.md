@@ -7,13 +7,13 @@ lista original de memoria-ada-outline.md §4 (que agrupaba un paso interno del s
 detección de pose — como si fuera una acción propia del usuario).
 -->
 
-## Requisitos funcionales (casos de uso)
+## 4.1 Requisitos funcionales (casos de uso)
 
 *Los casos de uso describen el comportamiento previsto por el contrato del sistema. Donde la
 implementación se aparta de ese contrato, se indica explícitamente en el propio caso de uso
 (ver CU-5).*
 
-### CU-1: Registrarse
+### 4.1.1 CU-1: Registrarse
 
 - **Actor:** Usuario no autenticado.
 - **Precondición:** El usuario dispone de un email no registrado previamente y una contraseña.
@@ -27,7 +27,7 @@ implementación se aparta de ese contrato, se indica explícitamente en el propi
   sesión activa.
 - **Fuente:** `POST /v1/auth/register` (`backend/app/api/auth.py`).
 
-### CU-2: Iniciar sesión
+### 4.1.2 CU-2: Iniciar sesión
 
 - **Actor:** Usuario registrado.
 - **Precondición:** El usuario posee una cuenta existente con credenciales válidas.
@@ -39,7 +39,7 @@ implementación se aparta de ese contrato, se indica explícitamente en el propi
   anterior no se invalida por este nuevo login — coexisten hasta que cada uno se use o se revoque.
 - **Fuente:** `POST /v1/auth/login` (`backend/app/api/auth.py`).
 
-### CU-3: Cerrar sesión
+### 4.1.3 CU-3: Cerrar sesión
 
 - **Actor:** Usuario autenticado.
 - **Precondición:** El usuario tiene una sesión activa con un token de refresco válido.
@@ -51,7 +51,7 @@ implementación se aparta de ese contrato, se indica explícitamente en el propi
   para renovar la sesión es rechazado.
 - **Fuente:** `POST /v1/auth/logout` (`backend/app/api/auth.py`).
 
-### CU-4: Subir video de un intento
+### 4.1.4 CU-4: Subir video de un intento
 
 - **Actor:** Usuario autenticado; Sistema (cv-service), de forma asíncrona.
 - **Precondición:** El usuario está autenticado y dispone de un video (`.mp4` o `.mov`, códec
@@ -74,7 +74,7 @@ implementación se aparta de ese contrato, se indica explícitamente en el propi
   termina el análisis) persistidos en la base de datos.
 - **Fuente:** `POST /v1/attempts` (`backend/app/api/attempts.py`); webhook callback firmado.
 
-### CU-5: Consultar resultado de un intento
+### 4.1.5 CU-5: Consultar resultado de un intento
 
 - **Actor:** Usuario autenticado.
 - **Precondición:** El usuario tiene al menos un intento propio, en cualquier estado.
@@ -96,7 +96,7 @@ implementación se aparta de ese contrato, se indica explícitamente en el propi
 - **Fuente:** `GET /v1/attempts/{attempt_id}`, `GET /v1/attempts/{attempt_id}/video`
   (`backend/app/api/attempts.py`).
 
-### CU-6: Ver historial de intentos
+### 4.1.6 CU-6: Ver historial de intentos
 
 - **Actor:** Usuario autenticado.
 - **Precondición:** El usuario tiene cero o más intentos previos.
@@ -107,7 +107,7 @@ implementación se aparta de ese contrato, se indica explícitamente en el propi
 - **Postcondición:** El usuario visualiza la evolución de sus intentos a lo largo del tiempo.
 - **Fuente:** `GET /v1/attempts` (`backend/app/api/attempts.py`).
 
-### CU-7: Eliminar un intento (derecho al olvido / GDPR)
+### 4.1.7 CU-7: Eliminar un intento (derecho al olvido / GDPR)
 
 - **Actor:** Usuario autenticado.
 - **Precondición:** El usuario es propietario de un intento existente.
@@ -125,13 +125,13 @@ implementación se aparta de ese contrato, se indica explícitamente en el propi
 - **Fuente:** `DELETE /v1/attempts/{attempt_id}` (`backend/app/services/attempts.py::delete_attempt`);
   `DELETE /v1/jobs/{id}` (cv-service, invocado internamente por el backend).
 
-## Requisitos no funcionales
+## 4.2 Requisitos no funcionales
 
 Cada categoría distingue explícitamente entre lo que el sistema **ya cumple hoy** ("Real",
 verificado contra el código) y lo que queda como **objetivo** a alcanzar más adelante — nunca se
 mezclan ambas cosas en una sola afirmación.
 
-### RNF-1: Formatos y tamaño de video
+### 4.2.1 RNF-1: Formatos y tamaño de video
 
 - **Real:** extensiones permitidas `.mp4` y `.mov`
   (`backend/app/services/validation.py::ALLOWED_EXTENSIONS`); códec de video exigido: H.264
@@ -143,7 +143,7 @@ mezclan ambas cosas en una sola afirmación.
   el backend exige explícitamente `.mp4`/`.mov` y H.264.
 - **Objetivo:** — ya cumplido en ambos servicios; no queda pendiente.
 
-### RNF-2: Latencia de análisis
+### 4.2.2 RNF-2: Latencia de análisis
 
 - **Real:** el análisis es asíncrono (subida → cv-service → webhook → actualización de estado),
   con un reconciliador de respaldo que consulta el estado directamente a cv-service si el webhook
@@ -163,7 +163,7 @@ mezclan ambas cosas en una sola afirmación.
   re-medir con `benchmark_latencia.py` una vez desplegado ahí, ya que una VM mucho más modesta y
   compartida probablemente no sostenga la misma relación de ~1x.
 
-### RNF-3: Capacidad concurrente
+### 4.2.3 RNF-3: Capacidad concurrente
 
 - **Real:** el análisis se lanza como `BackgroundTask` de FastAPI dentro del propio proceso de
   cv-service (`cv-service/main.py`), sin cola de trabajos ni workers dedicados, y el estado de
@@ -181,7 +181,7 @@ mezclan ambas cosas en una sola afirmación.
   `benchmark_latencia.py` contra la VM real (o un contenedor con `docker run --cpus 2`, que no se
   probó en esta ronda por no tener Docker Desktop activo en la máquina de desarrollo).
 
-### RNF-4: Precisión del modelo
+### 4.2.4 RNF-4: Precisión del modelo
 
 - **Real:** no es un modelo de ML entrenado con métricas de accuracy/precision/recall — es un
   pipeline de reglas basado en umbrales de ángulo articular (p. ej. `GOOD_DEPTH_ANGLE_DEG` en
@@ -190,7 +190,7 @@ mezclan ambas cosas en una sola afirmación.
   detección (p. ej. porcentaje de repeticiones correctamente contadas sobre un set de videos de
   referencia).
 
-### RNF-5: Seguridad
+### 4.2.5 RNF-5: Seguridad
 
 - **Real:** autenticación JWT (access token en memoria, refresh token opaco almacenado sin hashear
   en `localStorage` del cliente pero hasheado con SHA-256 en la base de datos del backend vía
@@ -202,14 +202,14 @@ mezclan ambas cosas en una sola afirmación.
   el proxy de video de CU-5 mantiene fuera del navegador.
 - **Objetivo:** — ya cumplido; se documenta como logrado, no como pendiente.
 
-### RNF-6: Disponibilidad
+### 4.2.6 RNF-6: Disponibilidad
 
 - **Real:** sin despliegue en AWS todavía (solo entorno local/desarrollo); sin SLA de
   disponibilidad definido.
 - **Objetivo:** definir un objetivo de disponibilidad (p. ej. 99%) una vez desplegado en
   producción.
 
-### RNF-7: Accesibilidad (WCAG)
+### 4.2.7 RNF-7: Accesibilidad (WCAG)
 
 - **Real:** no se ha realizado una auditoría formal de accesibilidad; el frontend usa componentes
   de shadcn/ui (basados en Base UI, accesibles por defecto), pero esto no se ha verificado
