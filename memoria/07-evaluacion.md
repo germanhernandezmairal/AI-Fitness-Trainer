@@ -134,3 +134,26 @@ vista de historial (CU-6) como paso propio: a nivel de API sí lo cubre `test_en
 navegador queda en manos de las pruebas unitarias (`attempt-history-list`, `use-attempts`) y del uso
 manual. Y CU-7 no tiene prueba unitaria de frontend: se apoya en la suite del backend y en las dos
 pruebas extremo a extremo. El resto de casos de uso está cubierto en los tres niveles.
+
+## 7.4 Verificación de requisitos no funcionales
+
+Cada RNF del §4 se contrasta aquí con la evidencia disponible: cómo se comprobó y qué resultado dio.
+Los RNF con prueba automatizada citan ficheros reales de `backend/tests/`. Las cifras de RNF-2 y
+RNF-3 se toman **literalmente de §4** (medición del 15/08/2026 con `benchmark_latencia.py`); esta
+sección las reproduce como resultado de aquella medición, no las recalcula.
+
+| RNF | Cómo se verificó | Resultado |
+|---|---|---|
+| RNF-1 · Formatos y tamaño de vídeo | `test_validation.py` (extensiones `.mp4`/`.mov`, códec H.264, tope de 100 MB, duración máxima de 60 s), más los límites de tamaño y duración que el cv-service aplica por su cuenta (`cv-service/main.py`) | **Cumplido**, con prueba automatizada en los dos servicios |
+| RNF-2 · Latencia de análisis | `benchmark_latencia.py`, 15/08/2026, sobre `squat.mp4` (~13s) en la máquina de desarrollo (16 núcleos físicos / 22 lógicos); 3 tandas secuenciales | Latencia media **12.4s** (mín. 12.3s, máx. 12.4s), una relación de **~0.95x** la duración del vídeo, dominada por el procesamiento frame a frame de MediaPipe. Extrapolada linealmente a un vídeo de 60s: **~57s** de procesamiento puro. SLA propuesto: **menos de 90s** para un vídeo de 60s (§4 RNF-2). Sin SLA verificado en producción |
+| RNF-3 · Capacidad concurrente | Mismo benchmark, niveles de concurrencia 1/2/3/4, 3 tandas cada uno, misma máquina | La latencia por job se mantuvo prácticamente plana hasta concurrencia 4 (**1.00x-1.06x** contra la línea base de concurrencia 1, máx. **14.9s** en una tanda): MediaPipe/OpenCV liberan el GIL lo suficiente para que los hilos del `BackgroundTask` corran en paralelo de verdad. Objetivo conservador para el destino de despliegue real (2 OCPU compartidos): **2 análisis simultáneos**, no como límite medido y sin confirmar sobre esa máquina (§4 RNF-3) |
+| RNF-4 · Precisión del modelo | No aplica una métrica de *accuracy*: el pipeline es un sistema de reglas sobre umbrales de ángulo articular (§6.1), no un clasificador entrenado. El objetivo de §4 —fiabilidad de detección sobre un conjunto de vídeos de referencia— exigiría construir y etiquetar ese conjunto | **Queda sin cuantificar**: el conjunto de referencia no se construyó (se asume abiertamente en §7.6). La única evaluación disponible es la observación cualitativa sobre vídeo real de §7.5 |
+| RNF-5 · Seguridad | `test_signing.py` (firma y verificación HMAC-SHA256 en ambos sentidos: cuerpo manipulado, secreto erróneo, *timestamp* caducado o futuro); `test_webhook.py` (el backend rechaza webhooks sin firma o con firma inválida, verifica antes de buscar el intento y es idempotente); `test_register_login.py` (el caso `test_refresh_detects_reuse…`: revocación en bloque de toda la familia de *refresh tokens* ante detección de reuso); `test_cv_client.py` (la cabecera `X-API-Key` viaja en el envío del job, el borrado y el proxy de vídeo) | **Cumplido**, con prueba automatizada para cada mecanismo |
+| RNF-6 · Disponibilidad | La aplicación está en producción sobre el fallback gratuito de GCP (`fake-cv-service`), con TLS real de Let's Encrypt y CI de despliegue autosostenido | **Sin SLA medido**: no hay monitorización de *uptime*. El objetivo de disponibilidad de §4 queda sin verificar |
+| RNF-7 · Accesibilidad (WCAG 2.1 AA) | El rediseño del frontend de 2026-08-25 recalculó **todos** los ratios de contraste con la fórmula de luminancia relativa (no a ojo) y una revisión final los volvió a comprobar contra las superficies compuestas reales, corrigiendo tres pares de color que fallaban AA (spec de rediseño del frontend, ruta docs/superpowers/specs/2026-08-25-frontend-redesign-design.md); los componentes proceden de shadcn/ui, accesibles por defecto | **Conformidad AA razonada, no auditada**: no se ejecutó Lighthouse ni axe, ni se hizo una pasada con lector de pantalla |
+
+**Caveat transversal.** Los benchmarks de RNF-2 y RNF-3 se midieron en una única máquina de
+desarrollo de 16 núcleos, no en el destino de despliegue real (2 OCPU compartidos con el backend y
+Postgres). Las cifras no se trasladan directamente, y los objetivos propuestos (SLA de menos de 90s,
+2 análisis simultáneos) están pendientes de re-medir con `benchmark_latencia.py` sobre esa máquina.
+Ya se advierte en §4; §7.6 lo retoma como amenaza a la validez.
