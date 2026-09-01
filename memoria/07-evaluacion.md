@@ -157,3 +157,97 @@ desarrollo de 16 núcleos, no en el destino de despliegue real (2 OCPU compartid
 Postgres). Las cifras no se trasladan directamente, y los objetivos propuestos (SLA de menos de 90s,
 2 análisis simultáneos) están pendientes de re-medir con `benchmark_latencia.py` sobre esa máquina.
 Ya se advierte en §4; §7.6 lo retoma como amenaza a la validez.
+
+## 7.5 Evaluación del pipeline sobre vídeo real
+
+El pipeline de análisis de movimiento no se evalúa con una cifra de *accuracy* (§7.1, §7.4 RNF-4):
+es un sistema de reglas deterministas, no un clasificador entrenado, y no existe un conjunto de
+vídeos etiquetados contra el que medirlo. Lo que sí hubo, a lo largo del proyecto, fue una serie de
+**pruebas manuales sobre vídeo de sentadilla real**: alguien ejecutaba el pipeline sobre un clip
+concreto, miraba los resultados fotograma a fotograma y anotaba dónde acertaba y dónde fallaba. Esta
+sección recoge esas observaciones en orden cronológico. Es una evaluación **exploratoria** —pocos
+vídeos, sin verdad-terreno— y su alcance se acota en §7.5.4.
+
+### 7.5.1 El vídeo de referencia (`squat.mp4`)
+
+El primer análisis real sobre `backend/tests/fixtures/squat.mp4` se hizo el 04/08/2026, antes del
+arreglo de códec. La segmentación en repeticiones funcionó: **se detectaron correctamente las 6
+repeticiones** del clip. Pero el ángulo mínimo de rodilla de cada repetición volvió en torno a
+**39°–44°**, muy por debajo del umbral de profundidad entonces vigente (una banda de dos límites
+`GOOD_DEPTH_MIN`/`GOOD_DEPTH_MAX`), de modo que las 6 repeticiones puntuaron entre **7 y 22 sobre
+100** (global ≈ 14/100) *pese a* una detección limpia.
+
+Esa contradicción —una sentadilla bien ejecutada y bien contada, puntuada como si fuera pésima— es
+lo que sacó a la luz la anomalía de la curva de puntuación: el *score* penalizaba bajar **más**
+profundo que la banda ideal. Alejandro la corrigió después colapsando la banda de dos límites en un
+único umbral `GOOD_DEPTH_ANGLE_DEG` (*commit* `aefbc6f`; el mensaje de ese *commit* cita
+explícitamente el caso «un *squat* real, limpio y de 39–44° que puntuaba 7–22/100»), cambio ya
+documentado en §6.1.4.
+
+`squat.mp4` es un clip de archivo con marca de agua de Getty, apto solo para las pruebas
+automatizadas y no para las figuras de interfaz del §5, que usan un clip de sentadilla al aire
+libre grabado por el propio usuario.
+
+### 7.5.2 El bug de códec (solo visible en un navegador real)
+
+El vídeo anotado que produce el pipeline se veía como un **cuadro en blanco** en el reproductor del
+frontend. La causa: el pipeline escribía la salida con `cv2.VideoWriter_fourcc(*"mp4v")` —MPEG-4
+Part 2—, un códec que el elemento `<video>` de los navegadores no decodifica (solo aceptan
+H.264/AVC, VP8/VP9, AV1, y HEVC en Safari).
+
+**Nadie lo había detectado antes** porque todas las pruebas anteriores del camino de vídeo usaban
+`fake-cv-service`, que devuelve una URL prefabricada y nunca escribe un vídeo real. Fue la primera
+vez que alguien pulsó *play* sobre un vídeo producido por el `cv-service` real en un navegador real.
+El arreglo fue el *commit* `eeae94a`, que cambió el códec a `avc1` (H.264 real con este *build* de
+OpenCV, sin post-proceso con `ffmpeg`); el códec en sí está documentado en §6.1.5.
+
+Este es el ejemplo canónico, dentro del proyecto, de un defecto que **ninguna prueba automatizada
+podía encontrar**: no lo veían ni las pruebas del backend (que hablan con `fake-cv-service`) ni las
+del `cv-service` (que verifican la lógica pura, no la reproducción en navegador) ni la e2e de
+Playwright (que también corre contra `fake-cv-service`). Hizo falta una persona mirando la interfaz
+real.
+
+### 7.5.3 Vídeo de cámara frontal (27/08/2026)
+
+Un clip aportado por el usuario: una sentadilla profunda grabada con la **cámara de frente**, fuera
+de la suposición de cámara lateral (plano sagital) sobre la que está construido el pipeline (§6.1).
+El clip era de 1080p, unos 56 s y unos 120 MB —por encima del tope de 100 MB de la API—, así que se
+ejecutó directamente a través de la función `analizar_video` en el entorno virtual, sin pasar por
+HTTP, y reescalado antes a 720p para acelerar el procesamiento (unos 25 s).
+
+El resultado fue un **éxito parcial con fallos instructivos**:
+
+- Las **15 sentadillas reales** —una vez que la persona estaba quieta y dentro del encuadre— se
+  siguieron bien *incluso de frente*: ángulos mínimos de rodilla entre **78° y 94°**, puntuadas
+  correctamente y sin falsos errores de forma. MediaPipe reconstruye una pose 3D estimada, así que
+  la flexión de rodilla es parcialmente recuperable de frente.
+- Pero el segmentador contó **5 «repeticiones» espurias**: 4 en los primeros ~1,4 s (la persona
+  entrando en cuadro y colocándose —una de ellas con un `min_knee_angle_deg` de **5,1°**, físicamente
+  imposible, que puntuó **100**) y 1 al final (al levantarse).
+- `excessive_forward_lean` se disparó sobre algunas de esas repeticiones de ruido, pese a que una
+  inclinación de torso es estructuralmente indetectable desde una cámara frontal.
+
+Los fallos reales que esta prueba puso de manifiesto están **todos en el dominio de Alejandro**
+según el reparto de trabajo entre pistas (§3):
+
+1. No hay una puerta de duración mínima ni de plausibilidad por repetición.
+2. `score_from_angle` premia profundidades físicamente imposibles: le falta un suelo en torno a
+   30°–40°.
+3. Las fases de colocación y de salida contaminan el conteo de repeticiones: haría falta una puerta
+   de N fotogramas consecutivos de pie, o descartar el primer y el último ~1,5 s.
+4. `excessive_forward_lean` no debería evaluarse sin la garantía de una cámara lateral.
+
+De estos, el problema de dirección de `excessive_forward_lean` ya estaba recogido —por otra vía— en
+el mensaje de seguimiento a Alejandro del 20/08/2026, junto con el riesgo de que *landmarks* casi
+coincidentes disparen el error por ruido de sub-píxel. Los puntos 1, 2 y 3, y el encuadre concreto
+del punto 4 (cámara frontal), provienen de las notas de esta sesión de prueba y quedan como material
+para la siguiente comunicación con Alejandro.
+
+### 7.5.4 Alcance de esta evaluación
+
+Esta evaluación del pipeline abarcó **unos 3 vídeos, sin etiquetas de verdad-terreno, y de forma
+exploratoria**: no hubo protocolo, ni conjunto de referencia, ni repetición sistemática. Sirve para
+**caracterizar modos de fallo** —la anomalía de la curva de puntuación, el bug de códec, el ruido de
+colocación, la fragilidad ante cámaras no laterales— pero **no produce una cifra de fiabilidad** del
+conteo de repeticiones ni de la detección de errores de forma. Esa limitación, y su consecuencia
+sobre el objetivo de RNF-4, se recogen en §7.6.
