@@ -67,18 +67,18 @@ una **máquina de estados** sencilla (`segment_reps`). En el código son dos est
 hasta cerrarla).
 
 ```mermaid
-stateDiagram-v2
-    [*] --> DePie
-    DePie --> EnRepeticion: ángulo &lt; 160° (STANDING_THRESHOLD)<br/>abre la rep: guarda el fotograma inicial<br/>y los landmarks (cadera, rodilla, tobillo, hombro)
-    EnRepeticion --> EnRepeticion: ángulo &lt; mínimo actual<br/>actualiza el ángulo mínimo y los landmarks de ese fotograma
-    EnRepeticion --> DePie: ángulo ≥ 160°<br/>cierra la rep y la añade (build_rep)
-    EnRepeticion --> [*]: el video termina dentro de una rep<br/>la rep se descarta, no se cuenta
+flowchart TD
+    START([inicio]) --> DePie[De pie]
+    DePie -->|"ángulo &lt; 160°<br/>(abre la rep)"| EnRep[En repetición]
+    EnRep -->|"ángulo ≥ 160°<br/>(cierra la rep, build_rep)"| DePie
+    EnRep -->|"fin del vídeo dentro de una rep<br/>(se descarta)"| FIN([fin])
 ```
 
 - El umbral `STANDING_THRESHOLD = 160°` separa "de pie" de "en movimiento".
-- Mientras dura la repetición se guarda el **ángulo mínimo** alcanzado y las coordenadas de los
-  cuatro *landmarks* *en ese fotograma concreto* —se necesitan para evaluar `excessive_forward_lean`
-  justo en el punto más bajo de la sentadilla, no en un fotograma cualquiera (§6.1.4)—.
+- Dentro del estado *En repetición*, cada fotograma con un ángulo menor que el mínimo visto hasta
+  entonces actualiza ese **ángulo mínimo** y guarda las coordenadas de los cuatro *landmarks* *de
+  ese fotograma concreto* —se necesitan para evaluar `excessive_forward_lean` justo en el punto más
+  bajo de la sentadilla, no en un fotograma cualquiera (§6.1.4)—.
 - Una repetición que empieza pero nunca vuelve a "de pie" (video cortado a mitad de rep) se
   **descarta**, no se cuenta.
 
