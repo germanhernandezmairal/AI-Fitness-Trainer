@@ -2,13 +2,13 @@
 
 **Fecha:** 2026-08-31
 **Autor:** Compilado con Claude, a partir de `cv-service/pipeline.py` y `cv-service/GLOSARIO.md`
-**Estado:** BORRADOR — pendiente de que Germán lo envíe a Alejandro directamente (no enviado por Claude)
+**Estado:** LISTO PARA ENVIAR — Germán lo envía a Alejandro directamente (no enviado por Claude)
 **Relacionado:** `memoria/06-implementacion.md` §6.1;
 `docs/superpowers/specs/2026-08-28-memoria-cap6-implementacion-design.md`;
 `docs/2026-08-11-alejandro-cv-form-error-detection-message.md` y
 `docs/2026-08-20-alejandro-cv-form-error-detection-followup-message.md` (contactos previos)
 
-**No bloquea nada:** el capítulo está pendiente de integrarse en `main` (se integra esta semana).
+**No bloquea nada:** el capítulo ya está integrado en `main` (commit `f2e912c`, 01/09/2026).
 Esto es una revisión de exactitud técnica; cualquier corrección entra como commit de seguimiento.
 
 ---
