@@ -91,10 +91,17 @@ fps`, redondeados a dos decimales.
 La puntuación **por repetición** (`score_from_angle`) es una curva **de un solo lado**: penaliza
 quedarse corto de profundidad, nunca pasarse.
 
-$$\text{score}(a_{\min}) = \begin{cases} 100 & a_{\min} \le \text{GOOD\_DEPTH\_ANGLE\_DEG} \\[6pt] \max\!\big(0,\ \operatorname{round}\!\big(100 - (a_{\min} - \text{GOOD\_DEPTH\_ANGLE\_DEG}) \cdot \text{PENALTY\_PER\_DEGREE}\big)\big) & \text{en otro caso} \end{cases}$$
+$$
+\text{score}(a_{\min}) =
+\begin{cases}
+100 & \text{si } a_{\min} \le G \\[6pt]
+\max\!\big(0,\ \operatorname{round}(100 - (a_{\min} - G) \cdot p)\big) & \text{si } a_{\min} > G
+\end{cases}
+$$
 
-Con `GOOD_DEPTH_ANGLE_DEG = 100°` y `PENALTY_PER_DEGREE = 3`, bajar **más** del umbral (mayor
-flexión, sentadilla más profunda) no resta nunca; solo resta no llegar. El razonamiento, citado en
+donde $G$ = `GOOD_DEPTH_ANGLE_DEG` = 100° (umbral de buena profundidad) y $p$ =
+`PENALTY_PER_DEGREE` = 3 (puntos restados por cada grado por encima de $G$). Bajar **más** del
+umbral (mayor flexión, sentadilla más profunda) no resta nunca; solo resta no llegar. El razonamiento, citado en
 `GLOSARIO.md`: **Schoenfeld (2010)**, *Squatting Kinematics and Kinetics and Their Application to
 Exercise Performance*, y la posición de la **NSCA** (*Considerations for Squat Depth*) de que «la
 evidencia científica no sostiene que la sentadilla completa exponga la rodilla a fuerzas de
