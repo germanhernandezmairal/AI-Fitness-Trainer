@@ -110,3 +110,27 @@ servidor que garantice que `main` pasa las pruebas en cualquier momento. Se reto
 extremo a extremo** (una de nivel de API en el backend, `test_full_lifecycle_upload_webhook_read_delete`;
 una de nivel de navegador en el frontend, `full-flow.spec.ts`). Las tres suites se ejecutaron el
 01/09/2026 con este resultado.
+
+## 7.3 Verificación de requisitos funcionales
+
+Esta sección traza cada caso de uso del §4 a la evidencia de que funciona: qué pruebas automatizadas
+lo ejercitan, si alguna de las dos pruebas extremo a extremo lo recorre y qué comprobación manual se
+hizo a través de la interfaz en ejecución. Los nombres de la tabla son ficheros de prueba reales
+—de `backend/tests/`, `frontend/tests/unit/` y `frontend/tests/e2e/`— citados sin extensión.
+
+| Caso de uso | Automatizadas | Extremo a extremo | Verificación manual |
+|---|---|---|---|
+| CU-1: Registrarse | `test_register_login` (backend); `register-page`, `auth-context` (frontend) | `full-flow` (paso de registro) | alta de cuentas reales por navegador en varias sesiones |
+| CU-2: Iniciar sesión | `test_register_login` (backend); `login-page`, `auth-context`, `protected-route` (frontend) | `full-flow` (cerrar sesión → volver a entrar) | inicio de sesión real por navegador |
+| CU-3: Cerrar sesión | `test_register_login` (backend, revoca el *refresh token*); `app-shell`, `auth-context` (frontend) | `full-flow` (paso de cierre de sesión) | cierre de sesión por navegador |
+| CU-4: Subir video de un intento | `test_create_attempt`, `test_validation` (backend); `video-upload-form`, `upload-error-messages` (frontend) | `test_end_to_end` (nivel de API) y `full-flow` (navegador) | subidas reales del *fixture* y de clips propios (§7.5) |
+| CU-5: Consultar resultado de un intento | `test_read_attempts`, `test_webhook` (backend); `attempt-result`, `use-attempt`, `use-attempt-video` (frontend) | `test_end_to_end` y `full-flow` (espera a estado `completed`/`failed`) | reproducción del video anotado real; bug de códec corregido en `eeae94a` (§6.1.5, §7.5) |
+| CU-6: Ver historial de intentos | `test_read_attempts` (backend, paginación por cursor); `attempt-history-list`, `use-attempts` (frontend) | `test_end_to_end` (comprueba que el intento aparece en el historial) | revisión del historial por navegador |
+| CU-7: Eliminar un intento (derecho al olvido / GDPR) | `test_delete_attempt` (backend, borrado cruzado backend↔cv-service y su orden) | `test_end_to_end` y `full-flow` (borrado final) | borrado verificado a mano contra el cv-service |
+
+**Todos los CU tienen cobertura automatizada.** Las dos lagunas visibles —se señalan, no se
+ocultan— están en las pruebas extremo a extremo. La e2e de navegador (`full-flow`) no comprueba la
+vista de historial (CU-6) como paso propio: a nivel de API sí lo cubre `test_end_to_end`, y en el
+navegador queda en manos de las pruebas unitarias (`attempt-history-list`, `use-attempts`) y del uso
+manual. Y CU-7 no tiene prueba unitaria de frontend: se apoya en la suite del backend y en las dos
+pruebas extremo a extremo. El resto de casos de uso está cubierto en los tres niveles.
