@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.api.deps import DbDep, SettingsDep
 from app.schemas.auth import LoginRequest, LogoutRequest, RefreshRequest, RegisterRequest, TokenPair
 from app.services.auth import (
+    ConsentRequired,
     EmailAlreadyRegistered,
     InvalidCredentials,
     InvalidRefreshToken,
@@ -25,7 +26,11 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=TokenPair)
 async def register(payload: RegisterRequest, db: DbDep, settings: SettingsDep) -> TokenPair:
     try:
-        user = await register_user(db, payload.email, payload.password)
+        user = await register_user(db, payload.email, payload.password, payload.consent)
+    except ConsentRequired:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "consent is required to register"
+        ) from None
     except EmailAlreadyRegistered:
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered") from None
 

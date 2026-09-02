@@ -21,3 +21,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # Set explicitly by every User-creation path (register_user, dev_login, test
+    # fixtures) — no server default, so a code path that forgets it fails loudly at
+    # insert time rather than silently recording a fabricated consent moment.
+    privacy_consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -5,6 +5,7 @@ tokens are issued, only on `get_current_user`.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from fastapi import APIRouter
@@ -31,7 +32,7 @@ async def dev_login(payload: DevLoginRequest, db: DbDep, settings: SettingsDep) 
     result = await db.execute(sa.select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if user is None:
-        user = User(id=uuid.uuid4(), email=payload.email)
+        user = User(id=uuid.uuid4(), email=payload.email, privacy_consent_at=datetime.now(UTC))
         db.add(user)
         await db.commit()
 

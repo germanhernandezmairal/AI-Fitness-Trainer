@@ -35,16 +35,28 @@ class InvalidRefreshToken(Exception):
     """Refresh presented a token that is missing, expired, or already revoked."""
 
 
+class ConsentRequired(Exception):
+    """Registration attempted with consent missing or explicitly false."""
+
+
 def hash_refresh_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 
-async def register_user(db: AsyncSession, email: str, password: str) -> User:
+async def register_user(db: AsyncSession, email: str, password: str, consent: bool) -> User:
+    if not consent:
+        raise ConsentRequired(email)
+
     existing = await db.execute(sa.select(User).where(User.email == email))
     if existing.scalar_one_or_none() is not None:
         raise EmailAlreadyRegistered(email)
 
-    user = User(id=uuid.uuid4(), email=email, hashed_password=hash_password(password))
+    user = User(
+        id=uuid.uuid4(),
+        email=email,
+        hashed_password=hash_password(password),
+        privacy_consent_at=datetime.now(UTC),
+    )
     db.add(user)
     try:
         await db.commit()

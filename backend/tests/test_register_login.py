@@ -10,7 +10,7 @@ PASSWORD = "correct-horse-battery-staple"
 
 async def test_register_creates_a_user_and_returns_a_token_pair(client):
     response = await client.post(
-        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD}
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
     )
 
     assert response.status_code == 201
@@ -21,10 +21,13 @@ async def test_register_creates_a_user_and_returns_a_token_pair(client):
 
 
 async def test_register_rejects_a_duplicate_email(client):
-    await client.post("/v1/auth/register", json={"email": EMAIL, "password": PASSWORD})
+    await client.post(
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
+    )
 
     response = await client.post(
-        "/v1/auth/register", json={"email": EMAIL, "password": "a-different-password"}
+        "/v1/auth/register",
+        json={"email": EMAIL, "password": "a-different-password", "consent": True},
     )
 
     assert response.status_code == 409
@@ -32,14 +35,33 @@ async def test_register_rejects_a_duplicate_email(client):
 
 async def test_register_rejects_a_too_short_password(client):
     response = await client.post(
-        "/v1/auth/register", json={"email": EMAIL, "password": "short"}
+        "/v1/auth/register", json={"email": EMAIL, "password": "short", "consent": True}
+    )
+
+    assert response.status_code == 422
+
+
+async def test_register_requires_consent(client):
+    response = await client.post(
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD}
+    )
+
+    assert response.status_code == 422
+
+
+async def test_register_rejects_explicit_false_consent(client):
+    response = await client.post(
+        "/v1/auth/register",
+        json={"email": EMAIL, "password": PASSWORD, "consent": False},
     )
 
     assert response.status_code == 422
 
 
 async def test_login_succeeds_with_correct_credentials(client):
-    await client.post("/v1/auth/register", json={"email": EMAIL, "password": PASSWORD})
+    await client.post(
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
+    )
 
     response = await client.post(
         "/v1/auth/login", json={"email": EMAIL, "password": PASSWORD}
@@ -52,7 +74,9 @@ async def test_login_succeeds_with_correct_credentials(client):
 
 
 async def test_login_rejects_wrong_password(client):
-    await client.post("/v1/auth/register", json={"email": EMAIL, "password": PASSWORD})
+    await client.post(
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
+    )
 
     response = await client.post(
         "/v1/auth/login", json={"email": EMAIL, "password": "wrong-password"}
@@ -86,7 +110,7 @@ async def test_login_rejects_a_dev_login_created_account(client):
 
 async def test_refresh_rotates_and_invalidates_the_old_token(client):
     registered = await client.post(
-        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD}
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
     )
     old_refresh_token = registered.json()["refresh_token"]
 
@@ -105,7 +129,7 @@ async def test_refresh_rotates_and_invalidates_the_old_token(client):
 
 async def test_refresh_can_be_chained_when_each_new_token_is_used_in_turn(client):
     registered = await client.post(
-        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD}
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
     )
     token = registered.json()["refresh_token"]
 
@@ -134,7 +158,7 @@ async def test_refresh_rejects_an_expired_token(client, session, user):
 
 async def test_refresh_detects_reuse_and_revokes_the_whole_session_family(client):
     registered = await client.post(
-        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD}
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
     )
     token_a = registered.json()["refresh_token"]
 
@@ -150,7 +174,7 @@ async def test_refresh_detects_reuse_and_revokes_the_whole_session_family(client
 
 async def test_logout_revokes_the_refresh_token(client):
     registered = await client.post(
-        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD}
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
     )
     refresh_token = registered.json()["refresh_token"]
 
@@ -170,7 +194,9 @@ async def test_logout_is_idempotent_for_an_unknown_token(client):
 
 
 async def test_access_token_from_login_still_authorizes_protected_routes(client):
-    await client.post("/v1/auth/register", json={"email": EMAIL, "password": PASSWORD})
+    await client.post(
+        "/v1/auth/register", json={"email": EMAIL, "password": PASSWORD, "consent": True}
+    )
     logged_in = await client.post(
         "/v1/auth/login", json={"email": EMAIL, "password": PASSWORD}
     )

@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import uuid
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -54,7 +55,11 @@ async def session(settings, migrated_database):
 
 @pytest_asyncio.fixture
 async def user(session) -> User:
-    record = User(id=uuid.uuid4(), email=f"{uuid.uuid4().hex}@example.com")
+    record = User(
+        id=uuid.uuid4(),
+        email=f"{uuid.uuid4().hex}@example.com",
+        privacy_consent_at=datetime.now(UTC),
+    )
     session.add(record)
     await session.flush()
     return record
@@ -121,7 +126,11 @@ async def make_attempt(session):
 async def other_user(session):
     from app.models import User
 
-    record = User(id=uuid.uuid4(), email=f"{uuid.uuid4().hex}@example.com")
+    record = User(
+        id=uuid.uuid4(),
+        email=f"{uuid.uuid4().hex}@example.com",
+        privacy_consent_at=datetime.now(UTC),
+    )
     session.add(record)
     await session.flush()
     return record
