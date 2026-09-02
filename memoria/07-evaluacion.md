@@ -3,7 +3,7 @@
 <!--
 Fuente: docs/superpowers/specs/2026-09-01-memoria-cap7-evaluacion-design.md (diseño aprobado).
 Capítulo retrospectivo: documenta la evaluación realmente hecha (suites automatizadas, dos pruebas
-extremo a extremo, pruebas manuales del pipeline sobre vídeo real, y el benchmark del 15/08/2026),
+extremo a extremo, pruebas manuales del pipeline sobre video real, y el benchmark del 15/08/2026),
 trazada a los requisitos del §4. Recuentos de pruebas verificados ejecutando las suites el
 01/09/2026. Números de latencia/concurrencia citados de §4 (RNF-2/RNF-3), no recalculados aquí.
 -->
@@ -19,9 +19,9 @@ través de la interfaz en ejecución.
 
 El **segundo es el pipeline de análisis de movimiento** (§6.1). Es un sistema de **reglas
 deterministas** sobre un detector de pose pre-entrenado, no un clasificador entrenado: no hay
-conjunto de entrenamiento, no hay conjunto de vídeos etiquetados y no aplica una cifra de
+conjunto de entrenamiento, no hay conjunto de videos etiquetados y no aplica una cifra de
 *accuracy* / *precision* / *recall* (§6.1.6, §4 RNF-4). Se evalúa **observando su comportamiento
-sobre vídeo de sentadilla real** y registrando dónde acierta y dónde falla (§7.5).
+sobre video de sentadilla real** y registrando dónde acierta y dónde falla (§7.5).
 
 **Metodología.** Cada funcionalidad y cada capítulo de esta memoria se construyó siguiendo un flujo
 de trabajo dirigido por pruebas (*test-first*); el §3 lo narra por fases y el historial de
@@ -30,13 +30,13 @@ automatizadas son el producto duradero de ese proceso, no un añadido posterior.
 
 **Lo que deliberadamente no se hizo, y por qué es defendible en este TFG:**
 
-- **No se construyó un conjunto de vídeos etiquetados** para validar el pipeline de visión.
+- **No se construyó un conjunto de videos etiquetados** para validar el pipeline de visión.
   Construir y etiquetar ese conjunto es un proyecto en sí mismo, fuera del alcance de un TFG de dos
   personas con un MVP congelado. La consecuencia —que el objetivo de fiabilidad de RNF-4 queda sin
   cuantificar— se asume abiertamente en §7.6.
 - **No hubo una campaña de pruebas formal** más allá de las suites que se entregaron con cada
   funcionalidad: el MVP está congelado, no hay código nuevo contra el que hacer campaña.
-- **La evaluación del pipeline (§7.5) es exploratoria**, no sistemática: unos pocos vídeos, sin
+- **La evaluación del pipeline (§7.5) es exploratoria**, no sistemática: unos pocos videos, sin
   etiquetas de verdad-terreno.
 
 ## 7.2 Pruebas automatizadas
@@ -57,7 +57,7 @@ La suite se agrupa por área de preocupación, sobre los ficheros de prueba real
 | Integración con el cv-service | `test_cv_client.py`, `test_webhook.py` | cliente del cv-service; recepción idempotente del webhook firmado |
 | Trabajos en segundo plano | `test_jobs.py` | reconciliador de sondeo, purga por retención |
 | Infraestructura | `test_health.py`, `test_cors.py`, `test_models.py`, `test_storage.py`, `test_validation.py` | *health check*, CORS, modelos ORM, almacenamiento local, validación de ficheros |
-| Extremo a extremo (API) | `test_end_to_end.py` | ciclo de vida completo del intento: subida → webhook → lectura → borrado, contra `fake-cv-service` |
+| Extremo a extremo (API) | `test_end_to_end.py` | ciclo de vida completo del intento: subida → webhook → lectura → borrado, contra un `cv-service` simulado con `respx` |
 
 Se ejecuta con `cd backend && uv run --extra dev pytest` (el extra `dev` instala pytest, respx y
 ruff).
@@ -66,13 +66,13 @@ ruff).
 
 Cuatro ficheros: `test_jobs.py`, `test_main.py`, `test_pipeline.py` y `test_security.py`. Siguen la
 convención ya establecida en §6: **el código que depende de MediaPipe/OpenCV se verifica a mano
-sobre vídeo real; la lógica pura sí lleva prueba automatizada** —cálculo de ángulos, transiciones de
-la máquina de estados de repeticiones, curva de puntuación, códec de escritura de vídeo, autenticación
+sobre video real; la lógica pura sí lleva prueba automatizada** —cálculo de ángulos, transiciones de
+la máquina de estados de repeticiones, curva de puntuación, códec de escritura de video, autenticación
 por `X-API-Key` y ciclo de vida de los *jobs*. Así, las 36 pruebas cubren el núcleo determinista y
 §7.5 cubre lo que pytest no puede alcanzar estructuralmente. El propio `test_pipeline.py` deja
-constancia de esta frontera: comprueba con datos sintéticos que el vídeo se escribe con un códec que
-el navegador decodifica, «para que un fallo de códec se detecte aquí y no a mano viendo un vídeo que
-no reproduce».
+constancia de esta frontera: comprueba con datos sintéticos que el video se escribe con un códec que
+el navegador decodifica, para que un futuro cambio a un códec no reproducible falle en ese test y no
+se descubra a mano viendo un video que no reproduce.
 
 ### 7.2.3 Frontend (`frontend/tests/`) — 73 pruebas unitarias (Vitest) + 1 extremo a extremo (Playwright)
 
@@ -106,10 +106,10 @@ de `git log` y las revisiones de rama lo respaldan, pero no existe una ejecució
 servidor que garantice que `main` pasa las pruebas en cualquier momento. Se retoma como limitación en
 §7.6.
 
-**Totales (a fecha de 01/09/2026):** 128 + 36 + 73 = **237 pruebas automatizadas** y **2 pruebas
-extremo a extremo** (una de nivel de API en el backend, `test_full_lifecycle_upload_webhook_read_delete`;
-una de nivel de navegador en el frontend, `full-flow.spec.ts`). Las tres suites se ejecutaron ese
-día con este resultado.
+**Totales (a fecha de 01/09/2026):** 128 + 36 + 73 = **237 pruebas automatizadas** y
+**2 pruebas extremo a extremo** (una de nivel de API en el backend,
+`test_full_lifecycle_upload_webhook_read_delete`; una de nivel de navegador en el frontend,
+`full-flow.spec.ts`).
 
 ## 7.3 Verificación de requisitos funcionales
 
@@ -144,13 +144,13 @@ sección las reproduce como resultado de aquella medición, no las recalcula.
 
 | RNF | Cómo se verificó | Resultado |
 |---|---|---|
-| RNF-1 · Formatos y tamaño de vídeo | el validador acepta `.mp4` y `.mov` y rechaza otras extensiones; `test_validation.py` cubre la aceptación de `.mp4`, el rechazo por extensión y los límites de códec (H.264), tamaño (100 MB) y duración (60 s), más los límites de tamaño y duración que el cv-service aplica por su cuenta (`cv-service/main.py`) | **Cumplido**, con prueba automatizada en los dos servicios |
-| RNF-2 · Latencia de análisis | `benchmark_latencia.py`, 15/08/2026, sobre `squat.mp4` (~13s) en la máquina de desarrollo (16 núcleos físicos / 22 lógicos); 3 tandas secuenciales | Latencia media **12.4s** (mín. 12.3s, máx. 12.4s), una relación de **~0.95x** la duración del vídeo, dominada por el procesamiento frame a frame de MediaPipe. Extrapolada linealmente a un vídeo de 60s: **~57s** de procesamiento puro. SLA propuesto: **menos de 90s** para un vídeo de 60s (§4 RNF-2). Sin SLA verificado en producción |
+| RNF-1 · Formatos y tamaño de video | el validador acepta `.mp4` y `.mov` y rechaza otras extensiones; `test_validation.py` cubre la aceptación de `.mp4`, el rechazo por extensión y los límites de códec (H.264), tamaño (100 MB) y duración (60s), más los límites de tamaño y duración que el cv-service aplica por su cuenta (`cv-service/main.py`) | **Cumplido**, con prueba automatizada en los dos servicios |
+| RNF-2 · Latencia de análisis | `benchmark_latencia.py`, 15/08/2026, sobre `squat.mp4` (~13s) en la máquina de desarrollo (16 núcleos físicos / 22 lógicos); 3 tandas secuenciales | Latencia media **12.4s** (mín. 12.3s, máx. 12.4s), una relación de **~0.95x** la duración del video, dominada por el procesamiento frame a frame de MediaPipe. Extrapolada linealmente a un video de 60s: **~57s** de procesamiento puro. SLA propuesto: **menos de 90s** para un video de 60s (§4 RNF-2). Sin SLA verificado en producción |
 | RNF-3 · Capacidad concurrente | Mismo benchmark, niveles de concurrencia 1/2/3/4, 3 tandas cada uno, misma máquina | La latencia por job se mantuvo prácticamente plana hasta concurrencia 4 (**1.00x-1.06x** contra la línea base de concurrencia 1, máx. **14.9s** en una tanda): MediaPipe/OpenCV liberan el GIL lo suficiente para que los hilos del `BackgroundTask` corran en paralelo de verdad. Objetivo conservador para el destino de despliegue real (2 OCPU compartidos): **2 análisis simultáneos**, no como límite medido y sin confirmar sobre esa máquina (§4 RNF-3) |
-| RNF-4 · Precisión del modelo | No aplica una métrica de *accuracy*: el pipeline es un sistema de reglas sobre umbrales de ángulo articular (§6.1), no un clasificador entrenado. El objetivo de §4 —fiabilidad de detección sobre un conjunto de vídeos de referencia— exigiría construir y etiquetar ese conjunto | **Queda sin cuantificar**: el conjunto de referencia no se construyó (se asume abiertamente en §7.6). La única evaluación disponible es la observación cualitativa sobre vídeo real de §7.5 |
-| RNF-5 · Seguridad | `test_signing.py` (firma y verificación HMAC-SHA256 en ambos sentidos: cuerpo manipulado, secreto erróneo, *timestamp* caducado o futuro); `test_webhook.py` (el backend rechaza webhooks sin firma o con firma inválida, verifica antes de buscar el intento y es idempotente); `test_register_login.py` (el caso `test_refresh_detects_reuse…`: revocación en bloque de toda la familia de *refresh tokens* ante detección de reuso); `test_cv_client.py` (la cabecera `X-API-Key` viaja en el envío del job, el borrado y el proxy de vídeo) | **Cumplido**, con prueba automatizada para cada mecanismo |
-| RNF-6 · Disponibilidad | La aplicación está en producción sobre el fallback gratuito de GCP (`fake-cv-service`), con TLS real de Let's Encrypt y CI de despliegue autosostenido | **Sin SLA medido**: no hay monitorización de *uptime*. El objetivo de disponibilidad de §4 queda sin verificar |
-| RNF-7 · Accesibilidad (WCAG 2.1 AA) | El rediseño del frontend de 2026-08-25 recalculó **todos** los ratios de contraste con la fórmula de luminancia relativa (no a ojo) y una revisión final los volvió a comprobar contra las superficies compuestas reales, corrigiendo tres pares de color que fallaban AA (constatado en la revisión final de esa rama); los componentes proceden de shadcn/ui, accesibles por defecto | **Conformidad AA razonada, no auditada**: no se ejecutó Lighthouse ni axe, ni se hizo una pasada con lector de pantalla |
+| RNF-4 · Precisión del modelo | No aplica una métrica de *accuracy*: el pipeline es un sistema de reglas sobre umbrales de ángulo articular (§6.1), no un clasificador entrenado. El objetivo de §4 —fiabilidad de detección sobre un conjunto de videos de referencia— exigiría construir y etiquetar ese conjunto | **Queda sin cuantificar**: el conjunto de referencia no se construyó (se asume abiertamente en §7.6). La única evaluación disponible es la observación cualitativa sobre video real de §7.5 |
+| RNF-5 · Seguridad | `test_signing.py` (firma y verificación HMAC-SHA256 en ambos sentidos: cuerpo manipulado, secreto erróneo, *timestamp* caducado o futuro); `test_webhook.py` (el backend rechaza webhooks sin firma o con firma inválida, verifica antes de buscar el intento y es idempotente); `test_register_login.py` (el caso `test_refresh_detects_reuse…`: revocación en bloque de toda la familia de *refresh tokens* ante detección de reuso); `test_cv_client.py` (la cabecera `X-API-Key` viaja en el envío del job, el borrado y el proxy de video) | **Cumplido**, con prueba automatizada para cada mecanismo |
+| RNF-6 · Disponibilidad | La aplicación está en producción sobre el fallback gratuito de GCP (`fake-cv-service`), con TLS real de Let's Encrypt y CI de despliegue autosostenido (el §4 recoge el estado previo al despliegue) | **Sin SLA medido**: no hay monitorización de *uptime*. El objetivo de disponibilidad de §4 queda sin verificar |
+| RNF-7 · Accesibilidad (WCAG 2.1 AA) | El rediseño del frontend de 2026-08-25 recalculó **todos** los ratios de contraste con la fórmula de luminancia relativa, no a ojo (tabla de tokens verificados en `docs/superpowers/specs/2026-08-25-frontend-redesign-design.md` §2), y su revisión final volvió a comprobarlos contra las superficies compuestas reales, corrigiendo dos pares de color que no llegaban a AA más el componente `Card`, que tomaba su borde de un token sin relación con el par verificado (*commit* `57da6f5`); los componentes proceden de shadcn/ui, accesibles por defecto | **Conformidad AA razonada, no auditada**: no se ejecutó Lighthouse ni axe, ni se hizo una pasada con lector de pantalla |
 
 **Caveat transversal.** Los benchmarks de RNF-2 y RNF-3 se midieron en una única máquina de
 desarrollo de 16 núcleos, no en el destino de despliegue real (2 OCPU compartidos con el backend y
@@ -158,17 +158,17 @@ Postgres). Las cifras no se trasladan directamente, y los objetivos propuestos (
 2 análisis simultáneos) están pendientes de re-medir con `benchmark_latencia.py` sobre esa máquina.
 Ya se advierte en §4; §7.6 lo retoma como amenaza a la validez.
 
-## 7.5 Evaluación del pipeline sobre vídeo real
+## 7.5 Evaluación del pipeline sobre video real
 
 El pipeline de análisis de movimiento no se evalúa con una cifra de *accuracy* (§7.1, §7.4 RNF-4):
 es un sistema de reglas deterministas, no un clasificador entrenado, y no existe un conjunto de
-vídeos etiquetados contra el que medirlo. Lo que sí hubo, a lo largo del proyecto, fue una serie de
-**pruebas manuales sobre vídeo de sentadilla real**: alguien ejecutaba el pipeline sobre un clip
+videos etiquetados contra el que medirlo. Lo que sí hubo, a lo largo del proyecto, fue una serie de
+**pruebas manuales sobre video de sentadilla real**: alguien ejecutaba el pipeline sobre un clip
 concreto, miraba los resultados fotograma a fotograma y anotaba dónde acertaba y dónde fallaba. Esta
 sección recoge esas observaciones en orden cronológico. Es una evaluación **exploratoria** —pocos
-vídeos, sin verdad-terreno— y su alcance se acota en §7.5.4.
+videos, sin verdad-terreno— y su alcance se acota en §7.5.4.
 
-### 7.5.1 El vídeo de referencia (`squat.mp4`)
+### 7.5.1 El video de referencia (`squat.mp4`)
 
 El primer análisis real sobre `backend/tests/fixtures/squat.mp4` se hizo el 04/08/2026, antes del
 arreglo de códec. La segmentación en repeticiones funcionó: **se detectaron correctamente las 6
@@ -180,9 +180,10 @@ repeticiones** del clip. Pero el ángulo mínimo de rodilla de cada repetición 
 Esa contradicción —una sentadilla bien ejecutada y bien contada, puntuada como si fuera pésima— es
 lo que sacó a la luz la anomalía de la curva de puntuación: el *score* penalizaba bajar **más**
 profundo que la banda ideal. Alejandro la corrigió después colapsando la banda de dos límites en un
-único umbral `GOOD_DEPTH_ANGLE_DEG` (*commit* `aefbc6f`; `cv-service/GLOSARIO.md` recoge
-explícitamente el caso de una sentadilla real, limpia y de 39–44° que puntuaba 7–22/100), cambio ya
-documentado en §6.1.4.
+único umbral `GOOD_DEPTH_ANGLE_DEG` (*commit* `aefbc6f`; el caso —sentadilla real, limpia y de
+39–44° puntuando 7–22/100— está documentado tanto en `cv-service/GLOSARIO.md` como en el registro
+contemporáneo del hallazgo, `docs/superpowers/specs/2026-08-07-cv-form-error-detection-request-design.md`
+§0), cambio ya documentado en §6.1.4.
 
 `squat.mp4` es un clip de archivo con marca de agua de Getty, apto solo para las pruebas
 automatizadas y no para las figuras de interfaz del §5, que usan un clip de sentadilla al aire
@@ -190,30 +191,31 @@ libre grabado por el propio usuario.
 
 ### 7.5.2 El bug de códec (solo visible en un navegador real)
 
-El vídeo anotado que produce el pipeline se veía como un **cuadro en blanco** en el reproductor del
+El video anotado que produce el pipeline se veía como un **cuadro en blanco** en el reproductor del
 frontend. La causa: el pipeline escribía la salida con `cv2.VideoWriter_fourcc(*"mp4v")` —MPEG-4
 Part 2—, un códec que el elemento `<video>` de los navegadores no decodifica (solo aceptan
 H.264/AVC, VP8/VP9, AV1, y HEVC en Safari).
 
-**Nadie lo había detectado antes** porque todas las pruebas anteriores del camino de vídeo usaban
-`fake-cv-service`, que devuelve una URL prefabricada y nunca escribe un vídeo real. Fue la primera
-vez que alguien pulsó *play* sobre un vídeo producido por el `cv-service` real en un navegador real.
-El arreglo fue el *commit* `eeae94a`, que cambió el códec a `avc1` (H.264 real con este *build* de
-OpenCV, sin post-proceso con `ffmpeg`); el códec en sí está documentado en §6.1.5.
+**Nadie lo había detectado antes** porque todas las pruebas anteriores del camino de video usaban
+`fake-cv-service` o un `cv-service` simulado, que devuelven una URL prefabricada y nunca escriben un
+video real. Fue la primera vez que alguien pulsó *play* sobre un video producido por el `cv-service`
+real en un navegador real. El arreglo fue el *commit* `eeae94a`, que cambió el códec a `avc1` (H.264
+real con este *build* de OpenCV, sin post-proceso con `ffmpeg`); el códec en sí está documentado en
+§6.1.5.
 
 Este es el ejemplo canónico, dentro del proyecto, de un defecto que **ninguna prueba automatizada
-podía encontrar**: no lo veían ni las pruebas del backend (que hablan con `fake-cv-service`) ni las
-del `cv-service` (que verifican la lógica pura, no la reproducción en navegador) ni la e2e de
+podía encontrar**: no lo veían ni las pruebas del backend (que simulan el `cv-service` con `respx`)
+ni las del `cv-service` (que verifican la lógica pura, no la reproducción en navegador) ni la e2e de
 Playwright (que también corre contra `fake-cv-service`). Hizo falta una persona mirando la interfaz
 real.
 
-### 7.5.3 Vídeo de cámara frontal (27/08/2026)
+### 7.5.3 Video de cámara frontal (27/08/2026)
 
 Un clip aportado por el usuario: una sentadilla profunda grabada con la **cámara de frente**, fuera
 de la suposición de cámara lateral (plano sagital) sobre la que está construido el pipeline (§6.1).
 El clip era de 1080p, unos 56 s y unos 120 MB —por encima del tope de 100 MB de la API—, así que se
 ejecutó directamente a través de la función `analizar_video` en el entorno virtual, sin pasar por
-HTTP, y reescalado antes a 720p para acelerar el procesamiento (unos 25 s).
+HTTP, y se reescaló antes a 720p para acelerar el procesamiento, que tardó unos 25 s.
 
 El resultado fue un **éxito parcial con fallos instructivos**:
 
@@ -248,7 +250,7 @@ para la siguiente comunicación con Alejandro.
 
 ### 7.5.4 Alcance de esta evaluación
 
-Esta evaluación del pipeline abarcó **unos 3 vídeos, sin etiquetas de verdad-terreno, y de forma
+Esta evaluación del pipeline abarcó **unos 3 videos, sin etiquetas de verdad-terreno, y de forma
 exploratoria**: no hubo protocolo, ni conjunto de referencia, ni repetición sistemática. Sirve para
 **caracterizar modos de fallo** —la anomalía de la curva de puntuación, el bug de códec, el ruido de
 colocación, la fragilidad ante cámaras no laterales— pero **no produce una cifra de fiabilidad** del
@@ -260,21 +262,21 @@ sobre el objetivo de RNF-4, se recogen en §7.6.
 La evaluación de este capítulo tiene límites conocidos. Se enumeran aquí, cada uno con su
 consecuencia, en lugar de dejarlos implícitos:
 
-- **Sin conjunto de vídeos etiquetados del pipeline** → el objetivo de fiabilidad de RNF-4 (§7.4)
+- **Sin conjunto de videos etiquetados del pipeline** → el objetivo de fiabilidad de RNF-4 (§7.4)
   queda sin cuantificar: la fiabilidad del conteo de repeticiones y de la detección de errores de
   forma no tiene un número, solo la caracterización cualitativa de §7.5.
-- **Un único vídeo de *fixture* para las pruebas extremo a extremo automatizadas** (`squat.mp4`),
+- **Un único video de *fixture* para las pruebas extremo a extremo automatizadas** (`squat.mp4`),
   y el único clip real no marcado es propiedad del usuario. La diversidad de entrada probada de
   forma reproducible es muy escasa; la variedad real de §7.5 vino de ejecuciones manuales no
   repetibles.
 - **Benchmarks de una sola máquina** (portátil de desarrollo de 16 núcleos), no del destino de
   despliegue real (2 OCPU compartidos con el backend y Postgres) → las cifras de RNF-2 y RNF-3
-  (§7.4) no se trasladan directamente; los objetivos propuestos (SLA de menos de 90 s, 2 análisis
+  (§7.4) no se trasladan directamente; los objetivos propuestos (SLA de menos de 90s, 2 análisis
   simultáneos) son valores de partida, no medidos sobre producción.
 - **CI no ejecuta la suite** (§7.2.4) → las regresiones solo las detecta la disciplina local de
   ejecutar las pruebas antes de fusionar; no hay ninguna garantía reproducible en el servidor de
   que `main` pase las 237 pruebas en cualquier momento.
-- **La evaluación del pipeline es exploratoria** (§7.5): N pequeño (unos 3 vídeos), sin verdad-terreno
+- **La evaluación del pipeline es exploratoria** (§7.5): N pequeño (unos 3 videos), sin verdad-terreno
   y sin protocolo. Sirve para caracterizar modos de fallo, no para dar una cifra de fiabilidad.
 - **Accesibilidad razonada, no auditada** (§7.4 RNF-7) → la conformidad AA se argumenta con la
   matemática de contraste (luminancia relativa sobre las superficies compuestas reales), pero no se
