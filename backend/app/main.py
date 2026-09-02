@@ -7,7 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import attempts, auth, auth_dev, webhooks
+from app.api import attempts, auth, auth_dev, users, webhooks
 from app.config import get_settings
 from app.db import session_factory
 from app.services.cv_client import CVClient
@@ -61,6 +61,7 @@ app.add_middleware(
 app.include_router(auth_dev.router)
 app.include_router(auth.router)
 app.include_router(attempts.router)
+app.include_router(users.router)
 app.include_router(webhooks.router)
 
 
