@@ -29,7 +29,7 @@ async def register(payload: RegisterRequest, db: DbDep, settings: SettingsDep) -
         user = await register_user(db, payload.email, payload.password, payload.consent)
     except ConsentRequired:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "consent is required to register"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "consent is required to register"
         ) from None
     except EmailAlreadyRegistered:
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered") from None
