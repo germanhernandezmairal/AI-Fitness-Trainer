@@ -10,6 +10,7 @@ interface AuthContextValue {
   login(email: string, password: string): Promise<void>;
   register(email: string, password: string, consent: boolean): Promise<void>;
   logout(): Promise<void>;
+  deleteAccount(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -87,8 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
   }
 
+  async function deleteAccount() {
+    await apiFetch("/v1/users/me", { method: "DELETE" });
+    await logout(); // best-effort refresh-token revoke (harmless — it's already gone via
+                     // cascade) + the same local token-clearing logout() always does
+  }
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, register, logout, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

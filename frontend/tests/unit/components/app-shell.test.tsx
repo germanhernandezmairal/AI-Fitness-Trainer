@@ -3,7 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockLogout = vi.fn();
-vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ logout: mockLogout }) }));
+const mockDeleteAccount = vi.fn();
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () => ({ logout: mockLogout, deleteAccount: mockDeleteAccount }),
+}));
+
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
 
 const mockSetTheme = vi.fn();
 let mockResolvedTheme = "light";
@@ -17,6 +23,8 @@ describe("AppShell", () => {
   afterEach(() => {
     cleanup();
     mockLogout.mockReset();
+    mockDeleteAccount.mockReset();
+    mockPush.mockReset();
     mockSetTheme.mockReset();
     mockResolvedTheme = "light";
   });
@@ -95,5 +103,51 @@ describe("AppShell", () => {
     await user.click(screen.getByRole("button", { name: /toggle theme/i }));
 
     expect(mockSetTheme).toHaveBeenCalledWith("light");
+  });
+
+  it("does not call deleteAccount until DELETE is typed to confirm", async () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /delete account/i }));
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
+  });
+
+  it("deletes the account and redirects to /login once DELETE is typed", async () => {
+    mockDeleteAccount.mockResolvedValueOnce(undefined);
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /delete account/i }));
+    await user.type(screen.getByLabelText(/type delete to confirm/i), "DELETE");
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(mockDeleteAccount).toHaveBeenCalled();
+    await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/login"));
+  });
+
+  it("cancels the confirmation without deleting", async () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /delete account/i }));
+    await user.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(screen.queryByLabelText(/type delete to confirm/i)).not.toBeInTheDocument();
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
   });
 });

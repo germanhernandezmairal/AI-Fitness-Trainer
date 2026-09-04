@@ -133,4 +133,26 @@ describe("useAuth", () => {
 
     expect(result.current.isAuthenticated).toBe(false);
   });
+
+  it("deletes the account, then clears tokens and flips to unauthenticated", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "a1", refresh_token: "r1", token_type: "bearer" }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 })) // DELETE /v1/users/me
+      .mockResolvedValueOnce(jsonResponse(204, {})); // best-effort POST /v1/auth/logout
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.login("me@example.com", "correct-horse-battery-staple");
+    });
+
+    await act(async () => {
+      await result.current.deleteAccount();
+    });
+
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(apiClient.getAccessToken()).toBeNull();
+    expect(localStorage.getItem("refresh_token")).toBeNull();
+    const deleteCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === "DELETE");
+    expect(deleteCall?.[0]).toContain("/v1/users/me");
+  });
 });
