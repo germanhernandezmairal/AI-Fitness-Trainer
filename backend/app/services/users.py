@@ -34,6 +34,11 @@ async def delete_account(
         storage.delete(attempt.original_video_ref)
         if attempt.cv_job_id:
             await cv_client.delete_job(attempt.cv_job_id)
+        # Explicit, not redundant with attempts.user_id's ON DELETE CASCADE: there is no ORM
+        # relationship between User and Attempt, so a DB-level cascade from db.delete(user)
+        # would leave these already-fetched Attempt objects live in the session's identity
+        # map. Without this, a later session.get(Attempt, id) in the same session (e.g. a
+        # test) would return the stale cached instance instead of None.
         await db.delete(attempt)
 
     await db.delete(user)

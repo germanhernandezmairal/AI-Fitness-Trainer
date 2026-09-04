@@ -155,4 +155,25 @@ describe("useAuth", () => {
     const deleteCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === "DELETE");
     expect(deleteCall?.[0]).toContain("/v1/users/me");
   });
+
+  it("does not clear tokens when the server refuses the deletion", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "a1", refresh_token: "r1", token_type: "bearer" }))
+      .mockResolvedValueOnce(new Response(null, { status: 502 })); // DELETE /v1/users/me refused
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.login("me@example.com", "correct-horse-battery-staple");
+    });
+
+    await expect(
+      act(async () => {
+        await result.current.deleteAccount();
+      }),
+    ).rejects.toThrow();
+
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(apiClient.getAccessToken()).not.toBeNull();
+    expect(localStorage.getItem("refresh_token")).not.toBeNull();
+  });
 });

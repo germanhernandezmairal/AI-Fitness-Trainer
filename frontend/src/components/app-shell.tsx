@@ -63,7 +63,8 @@ function DeleteAccountControl() {
     try {
       await deleteAccount();
       router.push("/login");
-    } catch {
+    } catch (err) {
+      console.error("Account deletion failed:", err);
       setError("Could not delete the account. Try again.");
       setIsDeleting(false);
     }

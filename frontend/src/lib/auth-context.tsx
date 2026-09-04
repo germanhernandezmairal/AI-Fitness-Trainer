@@ -89,7 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function deleteAccount() {
-    await apiFetch("/v1/users/me", { method: "DELETE" });
+    const response = await apiFetch("/v1/users/me", { method: "DELETE" });
+    if (response.status !== 204) {
+      throw new Error(`request to /v1/users/me failed with status ${response.status}`);
+    }
     await logout(); // best-effort refresh-token revoke (harmless — it's already gone via
                      // cascade) + the same local token-clearing logout() always does
   }
