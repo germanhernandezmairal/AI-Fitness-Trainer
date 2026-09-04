@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,7 +30,7 @@ export default function RegisterPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await register(email, password);
+      await register(email, password, consent);
       router.push("/");
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
@@ -72,7 +73,24 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        <Button type="submit" disabled={isSubmitting} className="w-full">
+        <div className="flex items-start gap-2">
+          <input
+            id="consent"
+            type="checkbox"
+            className="mt-1"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+          />
+          <Label htmlFor="consent" className="text-sm font-normal text-muted-foreground">
+            I agree that videos I upload will be processed to analyze my exercise technique,
+            per the{" "}
+            <Link href="/privacy" className="underline underline-offset-2">
+              Privacy Policy
+            </Link>
+            .
+          </Label>
+        </div>
+        <Button type="submit" disabled={isSubmitting || !consent} className="w-full">
           Create account
         </Button>
         <p className="text-center text-sm text-muted-foreground">

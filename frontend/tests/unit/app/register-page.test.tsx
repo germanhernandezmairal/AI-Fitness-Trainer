@@ -26,23 +26,43 @@ describe("RegisterPage", () => {
 
     await user.type(screen.getByLabelText(/email/i), "me@example.com");
     await user.type(screen.getByLabelText(/password/i), "short");
+    await user.click(screen.getByLabelText(/i agree/i));
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     expect(await screen.findByText(/at least 8 characters/i)).toBeInTheDocument();
     expect(mockRegister).not.toHaveBeenCalled();
   });
 
-  it("submits and redirects home on success", async () => {
+  it("disables submit until the consent checkbox is checked", async () => {
+    render(<RegisterPage />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/email/i), "me@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse-battery-staple");
+
+    expect(screen.getByRole("button", { name: /create account/i })).toBeDisabled();
+
+    await user.click(screen.getByLabelText(/i agree/i));
+
+    expect(screen.getByRole("button", { name: /create account/i })).toBeEnabled();
+  });
+
+  it("submits with consent true and redirects home on success", async () => {
     mockRegister.mockResolvedValueOnce(undefined);
     render(<RegisterPage />);
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/email/i), "me@example.com");
     await user.type(screen.getByLabelText(/password/i), "correct-horse-battery-staple");
+    await user.click(screen.getByLabelText(/i agree/i));
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() =>
-      expect(mockRegister).toHaveBeenCalledWith("me@example.com", "correct-horse-battery-staple"),
+      expect(mockRegister).toHaveBeenCalledWith(
+        "me@example.com",
+        "correct-horse-battery-staple",
+        true,
+      ),
     );
     expect(mockPush).toHaveBeenCalledWith("/");
   });
@@ -54,6 +74,7 @@ describe("RegisterPage", () => {
 
     await user.type(screen.getByLabelText(/email/i), "me@example.com");
     await user.type(screen.getByLabelText(/password/i), "correct-horse-battery-staple");
+    await user.click(screen.getByLabelText(/i agree/i));
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     expect(await screen.findByText(/already registered/i)).toBeInTheDocument();

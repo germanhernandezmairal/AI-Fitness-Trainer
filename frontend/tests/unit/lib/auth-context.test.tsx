@@ -69,10 +69,26 @@ describe("useAuth", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.register("me@example.com", "correct-horse-battery-staple");
+      await result.current.register("me@example.com", "correct-horse-battery-staple", true);
     });
 
     expect(result.current.isAuthenticated).toBe(true);
+  });
+
+  it("sends the consent flag in the register request body", async () => {
+    const fetchMock = vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse(201, { access_token: "a1", refresh_token: "r1", token_type: "bearer" }),
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.register("me@example.com", "correct-horse-battery-staple", true);
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init!.body as string);
+    expect(body.consent).toBe(true);
   });
 
   it("clears tokens and flips to unauthenticated on logout", async () => {

@@ -8,19 +8,22 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login(email: string, password: string): Promise<void>;
-  register(email: string, password: string): Promise<void>;
+  register(email: string, password: string, consent: boolean): Promise<void>;
   logout(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function requestTokenPair(path: string, email: string, password: string): Promise<TokenPair> {
+async function requestTokenPair(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<TokenPair> {
   let response: Response;
   try {
     response = await apiFetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(body),
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -60,13 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string) {
-    const tokens = await requestTokenPair("/v1/auth/login", email, password);
+    const tokens = await requestTokenPair("/v1/auth/login", { email, password });
     setTokens(tokens);
     setIsAuthenticated(true);
   }
 
-  async function register(email: string, password: string) {
-    const tokens = await requestTokenPair("/v1/auth/register", email, password);
+  async function register(email: string, password: string, consent: boolean) {
+    const tokens = await requestTokenPair("/v1/auth/register", { email, password, consent });
     setTokens(tokens);
     setIsAuthenticated(true);
   }

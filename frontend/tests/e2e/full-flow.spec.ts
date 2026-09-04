@@ -11,6 +11,7 @@ test("register, log out, log back in, upload, see a result, and delete it", asyn
   await page.goto("/register");
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/password/i).fill(password);
+  await page.getByLabel(/i agree/i).check();
   await page.getByRole("button", { name: /create account/i }).click();
 
   await expect(page).toHaveURL("/");
